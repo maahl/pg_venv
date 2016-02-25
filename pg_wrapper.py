@@ -21,12 +21,13 @@ Actions:
 '''
 
 
-def configure():
+def configure(additional_args=None):
     '''
     Run `./configure` in postgresql dir
 
     Uses env var PG_DIR for location of postgresql source, and
     PG_CONFIGURE_OPTIONS for options.
+    additional_args parameter allows to add more options to configure
     '''
     try:
         pg_dir = os.environ['PG_DIR']
@@ -36,7 +37,12 @@ def configure():
 
     pg_configure_options = os.environ.get('PG_CONFIGURE_OPTIONS', '')
 
-    cmd = 'cd {} && ./configure {}'.format(pg_dir, pg_configure_options)
+    if additional_args is None:
+        additional_args = []
+    # convert additional_args list to a string
+    additional_args = ' '.join(additional_args)
+
+    cmd = 'cd {} && ./configure {} {}'.format(pg_dir, pg_configure_options, additional_args)
     execute_cmd(cmd)
 
 
