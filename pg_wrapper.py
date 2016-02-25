@@ -194,6 +194,15 @@ def get_pg_version():
     return pg_version
 
 
+def install():
+    '''
+    Run make install in postgresql source dir
+    '''
+    pg_dir = get_pg_dir()
+    cmd = 'cd {} && make install'.format(pg_dir)
+    execute_cmd(cmd)
+
+
 def log(message, message_type='log'):
     '''
     Print a message to stdout
@@ -258,9 +267,6 @@ def workon(args):
     previous_pg_version  = os.environ.get('PG_VERSION', None)
     pg_install_dir = get_pg_install_dir()
 
-    # set PG_VERSION
-    os.environ['PG_VERSION'] = pg_version
-
     path = os.environ['PATH'].split(':')
     # remove previous version from PATH
     if previous_pg_version is not None:
@@ -288,6 +294,7 @@ def workon(args):
 ACTIONS = {
     'configure': configure,
     'help': usage,
+    'install': install,
     'make': make,
     'make_clean': make_clean,
     'workon': workon,
@@ -296,6 +303,7 @@ ACTIONS = {
 ALIASES = {
     'c': 'configure',
     'h': 'help',
+    'i': 'install',
     'm': 'make',
     'mc': 'make_clean',
     'w': 'workon',
