@@ -22,6 +22,10 @@ Actions:
     help, h:
         Display this help text
 
+    make_clean, mc:
+        Run `make clean` in postgresql source dir
+        Uses environment variable PG_DIR
+
 Environment variables:
     PG_CONFIGURE_OPTIONS:
         Options that are passed to the configure script
@@ -123,6 +127,17 @@ def log(message, message_type='log'):
     print(LOG_PREFIX + message)
 
 
+def make_clean():
+    '''
+    Run make clean in the postgresql source dir
+
+    Uses env var PG_DIR
+    '''
+    pg_dir = get_pg_dir()
+    cmd = 'cd {} && make clean'.format(pg_dir)
+    execute_cmd(cmd)
+
+
 def usage():
     print(USAGE)
 
@@ -130,11 +145,13 @@ def usage():
 ACTIONS = {
     'configure': configure,
     'help': usage,
+    'make_clean': make_clean,
 }
 
 ALIASES = {
     'c': 'configure',
     'h': 'help',
+    'mc': 'make_clean',
 }
 
 
