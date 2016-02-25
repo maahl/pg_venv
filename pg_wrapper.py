@@ -39,12 +39,7 @@ def configure(additional_args=None):
     PG_CONFIGURE_OPTIONS for options.
     additional_args parameter allows to add more options to configure
     '''
-    try:
-        pg_dir = os.environ['PG_DIR']
-    except KeyError:
-        print('Please set environment variable PG_DIR to point to your '
-              'postgresql source dir.')
-
+    pg_dir = get_pg_dir()
     pg_configure_options = os.environ.get('PG_CONFIGURE_OPTIONS', '')
 
     if additional_args is None:
@@ -95,6 +90,20 @@ def execute_cmd(cmd):
     else:
         log('command failed', 'error')
         log('command used: {}'.format(cmd), 'error')
+
+
+def get_pg_dir():
+    '''
+    Get value of the environment variable PG_DIR, and exit if not set
+    '''
+    try:
+        pg_dir = os.environ['PG_DIR']
+    except KeyError:
+        log('please set environment variable PG_DIR to point to your '
+            'postgresql source dir.', 'error')
+        exit(1)
+
+    return pg_dir
 
 
 def log(message, message_type='log'):
