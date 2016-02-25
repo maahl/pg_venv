@@ -5,14 +5,14 @@ import subprocess
 import sys
 
 
-LOG_PREFIX = 'pg_wrapper: '
+LOG_PREFIX = 'pg: '
 USAGE = '''
 Usage:
-    pg_wrapper.py <action> [args]
+    pg <action> [args]
 
 Actions:
     configure, c:
-        `pg_wrapper.py configure [<additional_args>]`
+        pg configure [<additional_args>]
 
         <additional_args>: additional options passed to the configure script
 
@@ -27,7 +27,7 @@ Actions:
         Display this help text
 
     make, m:
-        `pg_wrapper.py make [<make_args>]`
+        pg make [<make_args>]
 
         <make_args>: arguments that are passed to make (e.g. '-sj 4')
 
@@ -39,7 +39,7 @@ Actions:
         Uses environment variable PG_DIR
 
     workon, w:
-        pg_wrapper.py workon <pg_version>
+        pg workon <pg_version>
 
         <pg_version>: a string to identify the current postgresql build
 
