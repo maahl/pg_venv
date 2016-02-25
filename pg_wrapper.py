@@ -22,6 +22,14 @@ Actions:
     help, h:
         Display this help text
 
+    make, m:
+        `pg_wrapper.py make [<make_args>]`
+
+        <make_args>: arguments that are passed to make (e.g. '-sj 4')
+
+        Run `make` in postgresql source dir
+        Uses environment variable PG_DIR
+
     make_clean, mc:
         Run `make clean` in postgresql source dir
         Uses environment variable PG_DIR
@@ -132,6 +140,24 @@ def log(message, message_type='log'):
     print(LOG_PREFIX + message)
 
 
+def make(make_args=None):
+    '''
+    Run make in the postgresql source dir
+
+    Uses env var PG_DIR
+    <make_args> options that are passed to make
+    '''
+    pg_dir = get_pg_dir()
+
+    if make_args is None:
+        make_args = []
+    # convert mae_args list into a string
+    make_args = ' '.join(make_args)
+
+    cmd = 'cd {} && make {}'.format(pg_dir, make_args)
+    execute_cmd(cmd)
+
+
 def make_clean():
     '''
     Run make clean in the postgresql source dir
@@ -150,12 +176,14 @@ def usage():
 ACTIONS = {
     'configure': configure,
     'help': usage,
+    'make': make,
     'make_clean': make_clean,
 }
 
 ALIASES = {
     'c': 'configure',
     'h': 'help',
+    'm': 'make',
     'mc': 'make_clean',
 }
 
