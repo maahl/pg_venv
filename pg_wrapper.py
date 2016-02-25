@@ -8,16 +8,20 @@ import sys
 LOG_PREFIX = 'pg_wrapper: '
 USAGE = '''
 Usage:
-    pg.py <action> [args]
+    pg_wrapper.py <action> [args]
 
 Actions:
-    help, h:
-        Display this help text
     configure, c:
+        `pg_wrapper.py configure [<additional_args>]`
+
         Run `.configure` in postgresql source dir Set PG_DIR environment
         variable to the location of postgresql source
         dir.
         Set PG_CONFIGURE_OPTIONS for options to be used by the configure script.
+        <additional_args>: additional options passed to the configure script
+
+    help, h:
+        Display this help text
 '''
 
 
@@ -66,7 +70,7 @@ def execute_action(action, action_args):
 
     # if action isn't recognized, display help and exit
     else:
-        print('Unrecognized action {}'.format(action))
+        log('unrecognized action {}'.format(action), 'error')
         usage()
         exit(-1)
 
