@@ -34,12 +34,33 @@ Actions:
         Run `make clean` in postgresql source dir
         Uses environment variable PG_DIR
 
+    workon, w:
+        pg_wrapper.py workon <pg_version>
+
+        <pg_version>: a string to identify the current postgresql build
+
+        Set PATH to use PG_INSTALL_DIR/bin, set PG_VERSION, PGPORT, PGDATA,
+        and display <pg_version> in the prompt (PS1). The output of this
+        action is made to be sourced by bash (because it changes the
+        environment). See action 'get-shell-function' to ease that.
+
 Environment variables:
     PG_CONFIGURE_OPTIONS:
         Options that are passed to the configure script
 
     PG_DIR:
         Contains path to the postgresql source code
+
+    PG_INSTALL_DIR:
+        Postgresql builds will be installed in this directory.
+        Each build will be installed in $PG_INSTALL_DIR/postgresql-$PG_VERSION.
+        Not used if option '--prefix' is passed to 'configure' action.
+
+    PG_VERSION:
+        Version of postgresql we are currently working on.
+        Do not change this manually, use the 'workon' action.
+        Changes the install path (option '--prefix' in `configure`), the
+        search path for executables (PATH) and the data path (PGDATA)
 '''
 
 
@@ -123,6 +144,28 @@ def get_pg_dir():
     return pg_dir
 
 
+def get_pg_install_dir():
+    '''
+    Get value of the environment variable PG_INSTALL_DIR, and exit if not set
+    '''
+    try:
+        pg_install_dir = os.environ['PG_INSTALL_DIR']
+    except KeyError:
+        log('please set environment variable PG_INSTALL_DIR, which should '
+            'contain the directory where postgresql builds will be installed.', 'error')
+        exit(1)
+
+    return pg_install_dir
+
+
+def get_pg_path(pg_version):
+    '''
+    Return the path where a pg_version has been/will be installed
+    '''
+    pg_install_dir = get_pg_install_dir()
+    return os.path.join(pg_install_dir, 'postgresql-{}'.format(pg_version), 'bin')
+
+
 def log(message, message_type='log'):
     '''
     Print a message to stdout
@@ -151,7 +194,7 @@ def make(make_args=None):
 
     if make_args is None:
         make_args = []
-    # convert mae_args list into a string
+    # convert make_args list into a string
     make_args = ' '.join(make_args)
 
     cmd = 'cd {} && make {}'.format(pg_dir, make_args)
@@ -173,11 +216,53 @@ def usage():
     print(USAGE)
 
 
+def workon(args):
+    '''
+    Print commands to set PG_VERSION, PATH.
+    The result of this command is made to be sourced by the shell.
+    Uses PG_INSTALL_DIR
+    '''
+    # we only expect one argument
+    if len(args) > 1:
+        raise TypeError
+    pg_version = args[0]
+
+    previous_pg_version  = os.environ.get('PG_VERSION', None)
+    pg_install_dir = get_pg_install_dir()
+
+    # set PG_VERSION
+    os.environ['PG_VERSION'] = pg_version
+
+    path = os.environ['PATH'].split(':')
+    # remove previous version from PATH
+    if previous_pg_version is not None:
+        previous_pg_path = get_pg_path(previous_pg_version)
+        path = [p for p in path if p != previous_pg_path]
+
+    # update path for current pg_version
+    pg_path = get_pg_path(pg_version)
+    path.insert(0, pg_path)
+    cmd = 'export PATH={}'.format(':'.join(path))
+    print(cmd)
+
+    # update PS1 variable to display current pg_version, and remove previous
+    # version
+    # can't use .format() here for some obscure reason because of that
+    # characters mess
+    cmd = r'export PS1="[pg-' + pg_version + r']${PS1#\[pg-*\]}"'
+    print(cmd)
+
+    # set PG_VERSION variable
+    cmd = 'export PG_VERSION={}'.format(pg_version)
+    print(cmd)
+
+
 ACTIONS = {
     'configure': configure,
     'help': usage,
     'make': make,
     'make_clean': make_clean,
+    'workon': workon,
 }
 
 ALIASES = {
@@ -185,6 +270,7 @@ ALIASES = {
     'h': 'help',
     'm': 'make',
     'mc': 'make_clean',
+    'w': 'workon',
 }
 
 
