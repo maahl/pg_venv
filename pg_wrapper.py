@@ -16,8 +16,12 @@ Actions:
 
         <additional_args>: additional options passed to the configure script
 
-        Run `.configure` in postgresql source dir.
-        Uses environment variables PG_DIR and PG_CONFIGURE_OPTIONS.
+        Run `./configure` in postgresql source dir.
+        If PG_CONFIGURE_OPTIONS doesn't contain '--prefix' option, postgresql
+        install path will be set to "$PG_INSTALL_DIR/postgresql-$PG_VERSION".
+
+        Uses environment variables PG_DIR, PG_CONFIGURE_OPTIONS, PG_INSTALL_DIR
+        and PG_VERSION.
 
     help, h:
         Display this help text
@@ -47,6 +51,8 @@ Actions:
 Environment variables:
     PG_CONFIGURE_OPTIONS:
         Options that are passed to the configure script
+        If it contains '--prefix', PG_VERSION will have no effect during action
+        'configure'
 
     PG_DIR:
         Contains path to the postgresql source code
@@ -54,6 +60,7 @@ Environment variables:
     PG_INSTALL_DIR:
         Postgresql builds will be installed in this directory.
         Each build will be installed in $PG_INSTALL_DIR/postgresql-$PG_VERSION.
+        Needs to be an absolute path.
         Not used if option '--prefix' is passed to 'configure' action.
 
     PG_VERSION:
@@ -74,6 +81,14 @@ def configure(additional_args=None):
     '''
     pg_dir = get_pg_dir()
     pg_configure_options = os.environ.get('PG_CONFIGURE_OPTIONS', '')
+
+    # if prefix is not set yet, set it to go in PG_INSTALL_DIR
+    if '--prefix' not in pg_configure_options:
+        pg_version = get_pg_version()
+        pg_install_dir = get_pg_install_dir()
+        print(pg_version)
+        print(pg_install_dir)
+        pg_configure_options += ' --prefix {}'.format(os.path.join(pg_install_dir, 'postgresql-' + pg_version))
 
     if additional_args is None:
         additional_args = []
@@ -164,6 +179,19 @@ def get_pg_path(pg_version):
     '''
     pg_install_dir = get_pg_install_dir()
     return os.path.join(pg_install_dir, 'postgresql-{}'.format(pg_version), 'bin')
+
+
+def get_pg_version():
+    '''
+    Return the current PG_VERSION
+    '''
+    try:
+        pg_version = os.environ['PG_VERSION']
+    except KeyError:
+        log('PG_VERSION is not set. Please run `pg workon <pg_version>` and try again.', 'error')
+        exit(1)
+
+    return pg_version
 
 
 def log(message, message_type='log'):
