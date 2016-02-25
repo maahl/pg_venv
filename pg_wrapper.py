@@ -14,14 +14,20 @@ Actions:
     configure, c:
         `pg_wrapper.py configure [<additional_args>]`
 
-        Run `.configure` in postgresql source dir Set PG_DIR environment
-        variable to the location of postgresql source
-        dir.
-        Set PG_CONFIGURE_OPTIONS for options to be used by the configure script.
         <additional_args>: additional options passed to the configure script
+
+        Run `.configure` in postgresql source dir.
+        Uses environment variables PG_DIR and PG_CONFIGURE_OPTIONS.
 
     help, h:
         Display this help text
+
+Environment variables:
+    PG_CONFIGURE_OPTIONS:
+        Options that are passed to the configure script
+
+    PG_DIR:
+        Contains path to the postgresql source code
 '''
 
 
