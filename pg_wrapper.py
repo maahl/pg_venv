@@ -63,7 +63,12 @@ def execute_action(action, action_args):
     # if action is an existing action name, execute the corresponding function
     if action in ACTIONS.keys():
         if action_args:
-            ACTIONS[action](action_args)
+            try:
+                ACTIONS[action](action_args)
+            except TypeError:
+                log('some arguments were not understood', 'error')
+                usage()
+                exit(2)
         else:
             ACTIONS[action]()
 
