@@ -117,11 +117,12 @@ def configure(additional_args=None):
     pg_dir = get_env_var('PG_DIR')
     pg_configure_options = os.environ.get('PG_CONFIGURE_OPTIONS', '')
 
-    # if prefix is not set yet, set it to go in PG_INSTALL_DIR
-    if '--prefix' not in pg_configure_options:
-        pg_version = get_env_var('PG_VERSION')
-        pg_install_dir = get_env_var('PG_INSTALL_DIR')
-        pg_configure_options += ' --prefix {}'.format(os.path.join(pg_install_dir, 'postgresql-' + pg_version))
+    # if prefix is set in PG_CONFIGURE_OPTIONS, ignore it and display a warning
+    warning_prefix_ignored = '--prefix' in pg_configure_options
+
+    pg_version = get_env_var('PG_VERSION')
+    pg_install_dir = get_env_var('PG_INSTALL_DIR')
+    pg_configure_options += ' --prefix {}'.format(os.path.join(pg_install_dir, 'postgresql-' + pg_version))
 
     if additional_args is None:
         additional_args = []
@@ -130,6 +131,11 @@ def configure(additional_args=None):
 
     cmd = 'cd {} && ./configure {} {}'.format(pg_dir, pg_configure_options, additional_args)
     execute_cmd(cmd)
+
+    # display warning if necessary
+    if warning_prefix_ignored:
+        log('PG_CONFIGURE_OPTIONS contained option --prefix, but this has been '
+            'ignored.', 'warning')
 
 
 def execute_action(action, action_args):
@@ -283,6 +289,8 @@ def log(message, message_type='log'):
         message = '\033[0;31m' + message + '\033[0;m'
     elif message_type == 'success':
         message = '\033[0;32m' + message + '\033[0;m'
+    elif message_type == 'warning':
+        message = '\033[0;33m' + message + '\033[0;m'
 
     print(LOG_PREFIX + message)
 
