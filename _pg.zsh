@@ -15,6 +15,8 @@ case "$state" in
             "get_shell_function:output the wrapper function"
             "h:alias for 'help'"
             "help:display the help text"
+            "i:alias for 'install'"
+            "install:run make install in source dir"
             "m:alias for 'make'"
             "make:run make in source dir"
             "mc:alias for 'make_clean'"
