@@ -34,6 +34,11 @@ Actions:
     help, h:
         Display this help text
 
+    install, i:
+        Run `make install` in postgresql source dir
+
+        Uses environment variable PG_DIR
+
     make, m:
         pg make [<make_args>]
 
