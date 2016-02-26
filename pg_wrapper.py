@@ -52,9 +52,9 @@ Actions:
         <pg_version>: a string to identify the current postgresql build
 
         Set PATH to use PG_INSTALL_DIR/bin, set PG_VERSION, PGPORT, PGDATA,
-        and display <pg_version> in the prompt (PS1). The output of this
-        action is made to be sourced by bash (because it changes the
-        environment). See action 'get-shell-function' to ease that.
+        LD_LIBRARY_PATH, and display <pg_version> in the prompt (PS1). The
+        output of this action is made to be sourced by bash (because it changes
+        the environment). See action 'get-shell-function' to ease that.
 
 Environment variables:
     PG_CONFIGURE_OPTIONS:
@@ -178,12 +178,20 @@ def get_pg_install_dir():
     return pg_install_dir
 
 
-def get_pg_path(pg_version):
+def get_pg_bin(pg_version):
     '''
     Return the path where a pg_version has been/will be installed
     '''
     pg_install_dir = get_pg_install_dir()
     return os.path.join(pg_install_dir, 'postgresql-{}'.format(pg_version), 'bin')
+
+
+def get_pg_lib(pg_version):
+    '''
+    Return the path where a pg_version's libs have been/will be installed
+    '''
+    pg_install_dir = get_pg_install_dir()
+    return os.path.join(pg_install_dir, 'postgresql-{}'.format(pg_version), 'lib')
 
 
 def get_pg_version():
@@ -308,7 +316,7 @@ def usage():
 
 def workon(args):
     '''
-    Print commands to set PG_VERSION, PATH.
+    Print commands to set PG_VERSION, PATH, PGDATA, LD_LIBRARY_PATH.
     The result of this command is made to be sourced by the shell.
     Uses PG_INSTALL_DIR
     '''
@@ -324,13 +332,25 @@ def workon(args):
         path = os.environ['PATH'].split(':')
         # remove previous version from PATH
         if previous_pg_version is not None:
-            previous_pg_path = get_pg_path(previous_pg_version)
+            previous_pg_path = get_pg_bin(previous_pg_version)
             path = [p for p in path if p != previous_pg_path]
 
         # update path for current pg_version
-        pg_path = get_pg_path(pg_version)
-        path.insert(0, pg_path)
+        pg_bin_path = get_pg_bin(pg_version)
+        path.insert(0, pg_bin_path)
         output = 'export PATH={}\n'.format(':'.join(path))
+
+        ld_library_path = os.environ.get('LD_LIBRARY_PATH', '').split(':')
+        # remove previous version from LD_LIBRARY_PATH
+        if previous_pg_version is not None:
+            previous_pg_lib_path = get_pg_lib(previous_pg_version)
+            ld_library_path = [p for p in ld_library_path if p != previous_pg_lib_path]
+
+        # update LD_LIBRARY_PATH for current pg_version
+        pg_lib_path = get_pg_lib(pg_version)
+        ld_library_path.insert(0, pg_lib_path)
+        output += 'export LD_LIBRARY_PATH={}\n'.format(':'.join(ld_library_path))
+
 
         # update PS1 variable to display current pg_version, and remove previous
         # version
