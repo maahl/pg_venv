@@ -109,13 +109,13 @@ def configure(additional_args=None):
     PG_CONFIGURE_OPTIONS for options.
     additional_args parameter allows to add more options to configure
     '''
-    pg_dir = get_pg_dir()
+    pg_dir = get_env_var('PG_DIR')
     pg_configure_options = os.environ.get('PG_CONFIGURE_OPTIONS', '')
 
     # if prefix is not set yet, set it to go in PG_INSTALL_DIR
     if '--prefix' not in pg_configure_options:
-        pg_version = get_pg_version()
-        pg_install_dir = get_pg_install_dir()
+        pg_version = get_env_var('PG_VERSION')
+        pg_install_dir = get_env_var('PG_INSTALL_DIR')
         pg_configure_options += ' --prefix {}'.format(os.path.join(pg_install_dir, 'postgresql-' + pg_version))
 
     if additional_args is None:
@@ -173,73 +173,39 @@ def execute_cmd(cmd):
         log('command used: {}'.format(cmd), 'error')
 
 
+def get_env_var(env_var):
+    '''
+    Return the value of an environment variable
+    '''
+    try:
+        return os.environ[env_var]
+    except KeyError:
+        raise Exception('please set environment variable {}. See help for '
+                        'detail (`pg help`)'.format(env_var))
+
+
 def get_pg_data_dir(pg_version):
     '''
     Compute PGDATA for a pg_version
     '''
-    try:
-        pg_data_dir = os.environ['PG_DATA_DIR']
-    except KeyError:
-        raise Exception('please set environment variable PG_DATA_DIR to point to the '
-                        'directory where data should be stored')
-
+    pg_data_dir = get_env_var('PG_DATA_DIR')
     return os.path.join(pg_data_dir, 'postgresql-{}'.format(pg_version))
-
-
-def get_pg_dir():
-    '''
-    Get value of the environment variable PG_DIR, and exit if not set
-    '''
-    try:
-        pg_dir = os.environ['PG_DIR']
-    except KeyError:
-        raise Exception('please set environment variable PG_DIR to point to your '
-                        'postgresql source dir.')
-
-    return pg_dir
-
-
-def get_pg_install_dir():
-    '''
-    Get value of the environment variable PG_INSTALL_DIR, and exit if not set
-    '''
-    try:
-        pg_install_dir = os.environ['PG_INSTALL_DIR']
-    except KeyError:
-        raise Exception('please set environment variable PG_INSTALL_DIR, which '
-                        'should contain the directory where postgresql builds '
-                        'will be installed.')
-
-    return pg_install_dir
 
 
 def get_pg_bin(pg_version):
     '''
-    Return the path where a pg_version has been/will be installed
+    Compute the path where a pg_version has been/will be installed
     '''
-    pg_install_dir = get_pg_install_dir()
+    pg_install_dir = get_env_var('PG_INSTALL_DIR')
     return os.path.join(pg_install_dir, 'postgresql-{}'.format(pg_version), 'bin')
 
 
 def get_pg_lib(pg_version):
     '''
-    Return the path where a pg_version's libs have been/will be installed
+    Compute the path where a pg_version's libs have been/will be installed
     '''
-    pg_install_dir = get_pg_install_dir()
+    pg_install_dir = get_env_var('PG_INSTALL_DIR')
     return os.path.join(pg_install_dir, 'postgresql-{}'.format(pg_version), 'lib')
-
-
-def get_pg_version():
-    '''
-    Return the current PG_VERSION
-    '''
-    try:
-        pg_version = os.environ['PG_VERSION']
-    except KeyError:
-        raise Exception('PG_VERSION is not set. Please run `pg workon '
-                        '<pg_version>` and try again.', 'error')
-
-    return pg_version
 
 
 def get_shell_function():
@@ -294,7 +260,7 @@ def install():
     '''
     Run make install in postgresql source dir
     '''
-    pg_dir = get_pg_dir()
+    pg_dir = get_env_var('PG_DIR')
     cmd = 'cd {} && make install'.format(pg_dir)
     execute_cmd(cmd)
 
@@ -323,7 +289,7 @@ def make(make_args=None):
     Uses env var PG_DIR
     <make_args> options that are passed to make
     '''
-    pg_dir = get_pg_dir()
+    pg_dir = get_env_var('PG_DIR')
 
     if make_args is None:
         make_args = []
@@ -340,7 +306,7 @@ def make_clean():
 
     Uses env var PG_DIR
     '''
-    pg_dir = get_pg_dir()
+    pg_dir = get_env_var('PG_DIR')
     cmd = 'cd {} && make clean'.format(pg_dir)
     execute_cmd(cmd)
 
@@ -351,7 +317,7 @@ def start(args=None):
     If an instance name is not provided, start the current one.
     '''
     if args is None:
-        pg_version = get_pg_version()
+        pg_version = get_env_var('PG_VERSION')
     else:
         # only one argument is allowed
         if len(args) > 1:
@@ -370,7 +336,7 @@ def stop(args=None):
     If an instance name is not provided, stop the current one.
     '''
     if args is None:
-        pg_version = get_pg_version()
+        pg_version = get_env_var('PG_VERSION')
         pg_ctl = os.path.join(get_pg_bin(pg_version), 'pg_ctl')
         cmd = '{} stop'.format(pg_ctl)
     else:
@@ -407,7 +373,7 @@ def workon(args):
 
     try:
         previous_pg_version  = os.environ.get('PG_VERSION', None)
-        pg_install_dir = get_pg_install_dir()
+        pg_install_dir = get_env_var('PG_INSTALL_DIR')
 
         path = os.environ['PATH'].split(':')
         # remove previous version from PATH
