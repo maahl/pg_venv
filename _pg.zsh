@@ -20,6 +20,7 @@ case "$state" in
             "mc:alias for 'make_clean'"
             "make_clean:run make clean in source dir"
             "start:start a postgresql instance"
+            "stop:stop a postgresql instance"
             "w:alias for 'workon'"
             "workon:work on a particular postgresql instance"
         )
@@ -28,7 +29,7 @@ case "$state" in
     ;;
     (args)
         case "$line[1]" in
-            (start|workon|w)
+            (start|stop|workon|w)
                 _values 'pg versions' "${(uonzf)$(ls $PG_INSTALL_DIR | cut -d '-' -f 2)}"
             ;;
         esac

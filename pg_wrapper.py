@@ -55,6 +55,15 @@ Actions:
         current one (defined by PG_VERSION)
         Uses environment variables PG_VERSION and PG_INSTALL_DIR
 
+    stop:
+        pg stop [<instance>]
+
+        <instance>: which instance to stop
+
+        stop apostgresql instance. If <instance> is not specified, stop the
+        current one (defined by PG_VERSION)
+        Uses environment variables PG_VERSION and PG_INSTALL_DIR
+
     workon, w:
         pg workon <pg_version>
 
@@ -158,7 +167,7 @@ def execute_cmd(cmd):
     process.communicate()
 
     if process.returncode == 0:
-        log('command succesfully executed', 'success')
+        log('command successfully executed', 'success')
     else:
         log('command failed', 'error')
         log('command used: {}'.format(cmd), 'error')
@@ -166,7 +175,7 @@ def execute_cmd(cmd):
 
 def get_pg_data_dir(pg_version):
     '''
-    Return the directory where a pg_version's data should be stored
+    Compute PGDATA for a pg_version
     '''
     try:
         pg_data_dir = os.environ['PG_DATA_DIR']
@@ -355,6 +364,32 @@ def start(args=None):
     execute_cmd(cmd)
 
 
+def stop(args=None):
+    '''
+    stop a postgresql instance
+    If an instance name is not provided, stop the current one.
+    '''
+    if args is None:
+        pg_version = get_pg_version()
+        pg_ctl = os.path.join(get_pg_bin(pg_version), 'pg_ctl')
+        cmd = '{} stop'.format(pg_ctl)
+    else:
+        # only one argument is allowed
+        if len(args) > 1:
+            raise TypeError
+
+        pg_version = args[0]
+        pg_ctl = os.path.join(get_pg_bin(pg_version), 'pg_ctl')
+
+        # if version is given as a parameter, pass the data dir as parameter to
+        # pg_ctl
+        pg_data_dir = get_pg_data_dir(pg_version)
+        cmd = '{} stop -D {}'.format(pg_ctl, pg_data_dir)
+
+    # stop postgresql
+    execute_cmd(cmd)
+
+
 def usage():
     print(USAGE)
 
@@ -423,6 +458,7 @@ ACTIONS = {
     'make': make,
     'make_clean': make_clean,
     'start': start,
+    'stop': stop,
     'workon': workon,
 }
 
