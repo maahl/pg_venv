@@ -158,9 +158,8 @@ def get_pg_dir():
     try:
         pg_dir = os.environ['PG_DIR']
     except KeyError:
-        log('please set environment variable PG_DIR to point to your '
-            'postgresql source dir.', 'error')
-        exit(1)
+        raise Exception('please set environment variable PG_DIR to point to your '
+                        'postgresql source dir.')
 
     return pg_dir
 
@@ -172,9 +171,9 @@ def get_pg_install_dir():
     try:
         pg_install_dir = os.environ['PG_INSTALL_DIR']
     except KeyError:
-        log('please set environment variable PG_INSTALL_DIR, which should '
-            'contain the directory where postgresql builds will be installed.', 'error')
-        exit(1)
+        raise Exception('please set environment variable PG_INSTALL_DIR, which '
+                        'should contain the directory where postgresql builds '
+                        'will be installed.')
 
     return pg_install_dir
 
@@ -194,8 +193,8 @@ def get_pg_version():
     try:
         pg_version = os.environ['PG_VERSION']
     except KeyError:
-        log('PG_VERSION is not set. Please run `pg workon <pg_version>` and try again.', 'error')
-        exit(1)
+        raise Exception('PG_VERSION is not set. Please run `pg workon '
+                        '<pg_version>` and try again.', 'error')
 
     return pg_version
 
@@ -231,7 +230,7 @@ def get_shell_function():
     output += prefix + if_clause
     prefix += '    '
 
-    output += prefix + 'source <({} $@)\n'.format(script_path)
+    output += prefix + 'source <({} $@ || echo "echo $($_)")\n'.format(script_path)
 
     prefix = prefix[:-4]
     output += prefix + 'else\n'
@@ -318,31 +317,37 @@ def workon(args):
         raise TypeError
     pg_version = args[0]
 
-    previous_pg_version  = os.environ.get('PG_VERSION', None)
-    pg_install_dir = get_pg_install_dir()
+    try:
+        previous_pg_version  = os.environ.get('PG_VERSION', None)
+        pg_install_dir = get_pg_install_dir()
 
-    path = os.environ['PATH'].split(':')
-    # remove previous version from PATH
-    if previous_pg_version is not None:
-        previous_pg_path = get_pg_path(previous_pg_version)
-        path = [p for p in path if p != previous_pg_path]
+        path = os.environ['PATH'].split(':')
+        # remove previous version from PATH
+        if previous_pg_version is not None:
+            previous_pg_path = get_pg_path(previous_pg_version)
+            path = [p for p in path if p != previous_pg_path]
 
-    # update path for current pg_version
-    pg_path = get_pg_path(pg_version)
-    path.insert(0, pg_path)
-    cmd = 'export PATH={}'.format(':'.join(path))
-    print(cmd)
+        # update path for current pg_version
+        pg_path = get_pg_path(pg_version)
+        path.insert(0, pg_path)
+        output = 'export PATH={}\n'.format(':'.join(path))
 
-    # update PS1 variable to display current pg_version, and remove previous
-    # version
-    # can't use .format() here for some obscure reason because of that
-    # characters mess
-    cmd = r'export PS1="[pg-' + pg_version + r']${PS1#\[pg-*\]}"'
-    print(cmd)
+        # update PS1 variable to display current pg_version, and remove previous
+        # version
+        # Can't use .format() here for some obscure reason because of that
+        # characters mess
+        output += r'export PS1="[pg-' + pg_version + r']${PS1#\[pg-*\]}"' + '\n'
 
-    # set PG_VERSION variable
-    cmd = 'export PG_VERSION={}'.format(pg_version)
-    print(cmd)
+        # set PG_VERSION variable
+        output += 'export PG_VERSION={}\n'.format(pg_version)
+
+        # set PGDATA variable
+        pg_data = get_pg_data_dir(pg_version)
+        output += 'export PGDATA={}\n'.format(pg_data)
+    except Exception as e:
+        output = 'echo -e "\033[0;31m{}\033[0;m"'.format(e)
+
+    print(output)
 
 
 ACTIONS = {
