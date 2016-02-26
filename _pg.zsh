@@ -10,6 +10,8 @@ _arguments -C \
 case "$state" in
     (actions)
         local actions; actions=(
+            "ck:alias for 'check'"
+            "check:run make check in postgresql source dir"
             "c:alias for 'configure'"
             "configure:run ./configure in source dir"
             "get_shell_function:output the wrapper function"

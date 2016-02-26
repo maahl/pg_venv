@@ -11,6 +11,10 @@ Usage:
     pg <action> [args]
 
 Actions:
+    check, ck:
+        Run `make check` in postgresql source dir.
+        Uses environment variable PG_DIR
+
     configure, c:
         pg configure [<additional_args>]
 
@@ -104,6 +108,17 @@ Environment variables:
         Changes the install path (option '--prefix' in `configure`), the
         search path for executables (PATH) and the data path (PGDATA)
 '''
+
+
+def check():
+    '''
+    Run make check in the postgresql source dir
+
+    Uses env var PG_DIR
+    '''
+    pg_dir = get_env_var('PG_DIR')
+    cmd = 'cd {} && make check'.format(pg_dir)
+    execute_cmd(cmd)
 
 
 def configure(additional_args=None):
@@ -430,6 +445,7 @@ def workon(args):
 
 
 ACTIONS = {
+    'check': check,
     'configure': configure,
     'get_shell_function': get_shell_function,
     'help': usage,
@@ -443,6 +459,7 @@ ACTIONS = {
 
 ALIASES = {
     'c': 'configure',
+    'ck': 'check',
     'h': 'help',
     'i': 'install',
     'm': 'make',
