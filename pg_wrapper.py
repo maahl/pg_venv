@@ -46,6 +46,15 @@ Actions:
         Run `make clean` in postgresql source dir
         Uses environment variable PG_DIR
 
+    start:
+        pg start [<instance>]
+
+        <instance>: which instance to start
+
+        Start apostgresql instance. If <instance> is not specified, start the
+        current one (defined by PG_VERSION)
+        Uses environment variables PG_VERSION and PG_INSTALL_DIR
+
     workon, w:
         pg workon <pg_version>
 
@@ -64,6 +73,10 @@ Environment variables:
 
     PG_DIR:
         Contains path to the postgresql source code
+
+    PG_DATA_DIR:
+        Postgresql instances data will be stored in this directory.
+        Each instance will have its data in $PG_DATA_DIR/postgresql-<pg_version>
 
     PG_INSTALL_DIR:
         Postgresql builds will be installed in this directory.
@@ -149,6 +162,19 @@ def execute_cmd(cmd):
     else:
         log('command failed', 'error')
         log('command used: {}'.format(cmd), 'error')
+
+
+def get_pg_data_dir(pg_version):
+    '''
+    Return the directory where a pg_version's data should be stored
+    '''
+    try:
+        pg_data_dir = os.environ['PG_DATA_DIR']
+    except KeyError:
+        raise Exception('please set environment variable PG_DATA_DIR to point to the '
+                        'directory where data should be stored')
+
+    return os.path.join(pg_data_dir, 'postgresql-{}'.format(pg_version))
 
 
 def get_pg_dir():
@@ -310,6 +336,25 @@ def make_clean():
     execute_cmd(cmd)
 
 
+def start(args=None):
+    '''
+    Start a postgresql instance
+    If an instance name is not provided, start the current one.
+    '''
+    if args is None:
+        pg_version = get_pg_version()
+    else:
+        # only one argument is allowed
+        if len(args) > 1:
+            raise TypeError
+
+        pg_version = args[0]
+
+    # start postgresql
+    cmd = '{} start'.format(os.path.join(get_pg_bin(pg_version), 'pg_ctl'))
+    execute_cmd(cmd)
+
+
 def usage():
     print(USAGE)
 
@@ -377,6 +422,7 @@ ACTIONS = {
     'install': install,
     'make': make,
     'make_clean': make_clean,
+    'start': start,
     'workon': workon,
 }
 
