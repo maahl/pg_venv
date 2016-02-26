@@ -23,6 +23,14 @@ Actions:
         Uses environment variables PG_DIR, PG_CONFIGURE_OPTIONS, PG_INSTALL_DIR
         and PG_VERSION.
 
+    get_shell_function:
+        Return the function pg() that's used as a wrapper around this script
+        (necessary for the actions whose output need to be sourced, such as
+        action workon). The output of this action itself is to be sourced.
+
+        Line to put in your .bashrc:
+            `source <(/absolute/path/to/pg_wrapper.py get_shell_function)`
+
     help, h:
         Display this help text
 
@@ -86,8 +94,6 @@ def configure(additional_args=None):
     if '--prefix' not in pg_configure_options:
         pg_version = get_pg_version()
         pg_install_dir = get_pg_install_dir()
-        print(pg_version)
-        print(pg_install_dir)
         pg_configure_options += ' --prefix {}'.format(os.path.join(pg_install_dir, 'postgresql-' + pg_version))
 
     if additional_args is None:
@@ -194,6 +200,54 @@ def get_pg_version():
     return pg_version
 
 
+def get_shell_function():
+    '''
+    Return the text for the function pg(), used as a wrapper around this
+    script.
+    All the actions whose output need to be sourced should go in the if clause
+    of the pg function, except this one (otherwise we would get into a
+    never-ending loop).
+    '''
+    sourced_actions = ['w', 'workon']
+    script_path = sys.argv[0] # this should be an absolute path
+    output = '# Put the following line in your .bashrc, and make sure it uses an absolute path:\n'
+    output += '# source <({} get_shell_function)\n'.format(script_path)
+
+    prefix = '' # manage indentation
+
+    output += prefix + 'function pg {\n'
+    prefix += '    '
+
+    if_clause = 'if [[ -n $1 && ('
+
+    # first action handled separately
+    if_clause += '$1 = {}'.format(sourced_actions[0])
+
+    # other actions
+    for action in sourced_actions[1:]:
+        if_clause += ' || $1 = {}'.format(action)
+    if_clause += ') ]]; then\n'
+
+    output += prefix + if_clause
+    prefix += '    '
+
+    output += prefix + 'source <({} $@)\n'.format(script_path)
+
+    prefix = prefix[:-4]
+    output += prefix + 'else\n'
+    prefix += '    '
+
+    output += prefix + '{} $@\n'.format(script_path)
+
+    prefix = prefix[:-4]
+    output += prefix + 'fi\n'
+
+    prefix = prefix[:-4]
+    output += '}'
+
+    print(output)
+
+
 def install():
     '''
     Run make install in postgresql source dir
@@ -293,6 +347,7 @@ def workon(args):
 
 ACTIONS = {
     'configure': configure,
+    'get_shell_function': get_shell_function,
     'help': usage,
     'install': install,
     'make': make,
