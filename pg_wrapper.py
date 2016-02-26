@@ -22,10 +22,10 @@ Actions:
 
         Run `./configure` in postgresql source dir.
         If PG_CONFIGURE_OPTIONS doesn't contain '--prefix' option, postgresql
-        install path will be set to "$PG_INSTALL_DIR/postgresql-$PG_VERSION".
+        install path will be set to "$PG_INSTALL_DIR/postgresql-$PG_VENV".
 
         Uses environment variables PG_DIR, PG_CONFIGURE_OPTIONS, PG_INSTALL_DIR
-        and PG_VERSION.
+        and PG_VENV.
 
     get_shell_function:
         Return the function pg() that's used as a wrapper around this script
@@ -56,37 +56,37 @@ Actions:
         Uses environment variable PG_DIR
 
     start:
-        pg start [<instance>]
+        pg start [<pg_venv>]
 
-        <instance>: which instance to start
+        <pg_venv>: which instance to start
 
-        Start apostgresql instance. If <instance> is not specified, start the
-        current one (defined by PG_VERSION)
-        Uses environment variables PG_VERSION and PG_INSTALL_DIR
+        Start a postgresql instance from pg_venv. If <pg_venv> is not specified,
+        start the current one (defined by PG_VENV).
+        Uses environment variables PG_VENV and PG_INSTALL_DIR
 
     stop:
-        pg stop [<instance>]
+        pg stop [<pg_venv>]
 
-        <instance>: which instance to stop
+        <pg_venv>: which instance to stop
 
-        stop apostgresql instance. If <instance> is not specified, stop the
-        current one (defined by PG_VERSION)
-        Uses environment variables PG_VERSION and PG_INSTALL_DIR
+        stop apostgresql instance. If <pg_venv> is not specified, stop the
+        current one (defined by PG_VENV)
+        Uses environment variables PG_VENV and PG_INSTALL_DIR
 
     workon, w:
-        pg workon <pg_version>
+        pg workon <pg_venv>
 
-        <pg_version>: a string to identify the current postgresql build
+        <pg_venv>: a string to identify the current postgresql build
 
-        Set PATH to use PG_INSTALL_DIR/bin, set PG_VERSION, PGPORT, PGDATA,
-        LD_LIBRARY_PATH, and display <pg_version> in the prompt (PS1). The
+        Set PATH to use PG_INSTALL_DIR/bin, set PG_VENV, PGPORT, PGDATA,
+        LD_LIBRARY_PATH, and display <pg_venv> in the prompt (PS1). The
         output of this action is made to be sourced by bash (because it changes
         the environment). See action 'get-shell-function' to ease that.
 
 Environment variables:
     PG_CONFIGURE_OPTIONS:
         Options that are passed to the configure script
-        If it contains '--prefix', PG_VERSION will have no effect during action
+        If it contains '--prefix', PG_VENV will have no effect during action
         'configure'
 
     PG_DIR:
@@ -94,15 +94,15 @@ Environment variables:
 
     PG_DATA_DIR:
         Postgresql instances data will be stored in this directory.
-        Each instance will have its data in $PG_DATA_DIR/postgresql-<pg_version>
+        Each instance will have its data in $PG_DATA_DIR/postgresql-<pg_venv>
 
     PG_INSTALL_DIR:
         Postgresql builds will be installed in this directory.
-        Each build will be installed in $PG_INSTALL_DIR/postgresql-$PG_VERSION.
+        Each build will be installed in $PG_INSTALL_DIR/postgresql-$PG_VENV.
         Needs to be an absolute path.
         Not used if option '--prefix' is passed to 'configure' action.
 
-    PG_VERSION:
+    PG_VENV:
         Version of postgresql we are currently working on.
         Do not change this manually, use the 'workon' action.
         Changes the install path (option '--prefix' in `configure`), the
@@ -135,9 +135,9 @@ def configure(additional_args=None):
     # if prefix is set in PG_CONFIGURE_OPTIONS, ignore it and display a warning
     warning_prefix_ignored = '--prefix' in pg_configure_options
 
-    pg_version = get_env_var('PG_VERSION')
+    pg_venv = get_env_var('PG_VENV')
     pg_install_dir = get_env_var('PG_INSTALL_DIR')
-    pg_configure_options += ' --prefix {}'.format(os.path.join(pg_install_dir, 'postgresql-' + pg_version))
+    pg_configure_options += ' --prefix {}'.format(os.path.join(pg_install_dir, 'postgresql-' + pg_venv))
 
     if additional_args is None:
         additional_args = []
@@ -210,28 +210,28 @@ def get_env_var(env_var):
                         'detail (`pg help`)'.format(env_var))
 
 
-def get_pg_data_dir(pg_version):
+def get_pg_data_dir(pg_venv):
     '''
-    Compute PGDATA for a pg_version
+    Compute PGDATA for a pg_venv
     '''
     pg_data_dir = get_env_var('PG_DATA_DIR')
-    return os.path.join(pg_data_dir, 'postgresql-{}'.format(pg_version))
+    return os.path.join(pg_data_dir, 'postgresql-{}'.format(pg_venv))
 
 
-def get_pg_bin(pg_version):
+def get_pg_bin(pg_venv):
     '''
-    Compute the path where a pg_version has been/will be installed
-    '''
-    pg_install_dir = get_env_var('PG_INSTALL_DIR')
-    return os.path.join(pg_install_dir, 'postgresql-{}'.format(pg_version), 'bin')
-
-
-def get_pg_lib(pg_version):
-    '''
-    Compute the path where a pg_version's libs have been/will be installed
+    Compute the path where a pg_venv has been/will be installed
     '''
     pg_install_dir = get_env_var('PG_INSTALL_DIR')
-    return os.path.join(pg_install_dir, 'postgresql-{}'.format(pg_version), 'lib')
+    return os.path.join(pg_install_dir, 'postgresql-{}'.format(pg_venv), 'bin')
+
+
+def get_pg_lib(pg_venv):
+    '''
+    Compute the path where a pg_venv's libs have been/will be installed
+    '''
+    pg_install_dir = get_env_var('PG_INSTALL_DIR')
+    return os.path.join(pg_install_dir, 'postgresql-{}'.format(pg_venv), 'lib')
 
 
 def get_shell_function():
@@ -342,42 +342,42 @@ def make_clean():
 def start(args=None):
     '''
     Start a postgresql instance
-    If an instance name is not provided, start the current one.
+    If a pg_venv name is not provided, start the current one.
     '''
     if args is None:
-        pg_version = get_env_var('PG_VERSION')
+        pg_venv = get_env_var('PG_VENV')
     else:
         # only one argument is allowed
         if len(args) > 1:
             raise TypeError
 
-        pg_version = args[0]
+        pg_venv = args[0]
 
     # start postgresql
-    cmd = '{} start'.format(os.path.join(get_pg_bin(pg_version), 'pg_ctl'))
+    cmd = '{} start'.format(os.path.join(get_pg_bin(pg_venv), 'pg_ctl'))
     execute_cmd(cmd)
 
 
 def stop(args=None):
     '''
     stop a postgresql instance
-    If an instance name is not provided, stop the current one.
+    If a pg_venv name is not provided, stop the current one.
     '''
     if args is None:
-        pg_version = get_env_var('PG_VERSION')
-        pg_ctl = os.path.join(get_pg_bin(pg_version), 'pg_ctl')
+        pg_venv = get_env_var('PG_VENV')
+        pg_ctl = os.path.join(get_pg_bin(pg_venv), 'pg_ctl')
         cmd = '{} stop'.format(pg_ctl)
     else:
         # only one argument is allowed
         if len(args) > 1:
             raise TypeError
 
-        pg_version = args[0]
-        pg_ctl = os.path.join(get_pg_bin(pg_version), 'pg_ctl')
+        pg_venv = args[0]
+        pg_ctl = os.path.join(get_pg_bin(pg_venv), 'pg_ctl')
 
         # if version is given as a parameter, pass the data dir as parameter to
         # pg_ctl
-        pg_data_dir = get_pg_data_dir(pg_version)
+        pg_data_dir = get_pg_data_dir(pg_venv)
         cmd = '{} stop -D {}'.format(pg_ctl, pg_data_dir)
 
     # stop postgresql
@@ -390,53 +390,53 @@ def usage():
 
 def workon(args):
     '''
-    Print commands to set PG_VERSION, PATH, PGDATA, LD_LIBRARY_PATH.
+    Print commands to set PG_VENV, PATH, PGDATA, LD_LIBRARY_PATH.
     The result of this command is made to be sourced by the shell.
     Uses PG_INSTALL_DIR
     '''
     # we only expect one argument
     if len(args) > 1:
         raise TypeError
-    pg_version = args[0]
+    pg_venv = args[0]
 
     try:
-        previous_pg_version  = os.environ.get('PG_VERSION', None)
+        previous_pg_venv  = os.environ.get('PG_VENV', None)
         pg_install_dir = get_env_var('PG_INSTALL_DIR')
 
         path = os.environ['PATH'].split(':')
         # remove previous version from PATH
-        if previous_pg_version is not None:
-            previous_pg_path = get_pg_bin(previous_pg_version)
+        if previous_pg_venv is not None:
+            previous_pg_path = get_pg_bin(previous_pg_venv)
             path = [p for p in path if p != previous_pg_path]
 
-        # update path for current pg_version
-        pg_bin_path = get_pg_bin(pg_version)
+        # update path for current pg_venv
+        pg_bin_path = get_pg_bin(pg_venv)
         path.insert(0, pg_bin_path)
         output = 'export PATH={}\n'.format(':'.join(path))
 
         ld_library_path = os.environ.get('LD_LIBRARY_PATH', '').split(':')
         # remove previous version from LD_LIBRARY_PATH
-        if previous_pg_version is not None:
-            previous_pg_lib_path = get_pg_lib(previous_pg_version)
+        if previous_pg_venv is not None:
+            previous_pg_lib_path = get_pg_lib(previous_pg_venv)
             ld_library_path = [p for p in ld_library_path if p != previous_pg_lib_path]
 
-        # update LD_LIBRARY_PATH for current pg_version
-        pg_lib_path = get_pg_lib(pg_version)
+        # update LD_LIBRARY_PATH for current pg_venv
+        pg_lib_path = get_pg_lib(pg_venv)
         ld_library_path.insert(0, pg_lib_path)
         output += 'export LD_LIBRARY_PATH={}\n'.format(':'.join(ld_library_path))
 
 
-        # update PS1 variable to display current pg_version, and remove previous
+        # update PS1 variable to display current pg_venv, and remove previous
         # version
         # Can't use .format() here for some obscure reason because of that
         # characters mess
-        output += r'export PS1="[pg-' + pg_version + r']${PS1#\[pg-*\]}"' + '\n'
+        output += r'export PS1="[pg-' + pg_venv + r']${PS1#\[pg-*\]}"' + '\n'
 
-        # set PG_VERSION variable
-        output += 'export PG_VERSION={}\n'.format(pg_version)
+        # set PG_VENV variable
+        output += 'export PG_VENV={}\n'.format(pg_venv)
 
         # set PGDATA variable
-        pg_data = get_pg_data_dir(pg_version)
+        pg_data = get_pg_data_dir(pg_venv)
         output += 'export PGDATA={}\n'.format(pg_data)
     except Exception as e:
         output = 'echo -e "\033[0;31m{}\033[0;m"'.format(e)
