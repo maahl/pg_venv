@@ -208,10 +208,13 @@ def get_env_var(env_var):
     except KeyError:
         # handle PG_VENV differently, as it mustn't be set by the user directly
         if env_var == 'PG_VENV':
-            raise Exception('PG_VENV not set. Please run `pg workon <pg_venv> first`')
+            log('PG_VENV not set. Please run `pg workon <pg_venv> first`', 'error')
 
-        raise Exception('please set environment variable {}. See help for '
-                        'detail (`pg help`)'.format(env_var))
+        else:
+            log ('Please set environment variable {}. See help for '
+                'detail (pg help).'.format(env_var), 'error')
+
+        exit(-1)
 
 
 def get_pg_data_dir(pg_venv):
