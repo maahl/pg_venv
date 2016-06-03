@@ -311,7 +311,7 @@ def install():
     Run make install in postgresql source dir
     '''
     pg_dir = get_env_var('PG_DIR')
-    cmd = 'cd {} && make install'.format(pg_dir)
+    cmd = 'cd {} && make install && cd contrib && make install'.format(pg_dir)
     execute_cmd(cmd)
 
 
@@ -348,7 +348,7 @@ def make(make_args=None):
     # convert make_args list into a string
     make_args = ' '.join(make_args)
 
-    cmd = 'cd {} && make -s {}'.format(pg_dir, make_args)
+    cmd = 'cd {} && make -s {} && cd contrib && make -s {}'.format(pg_dir, make_args, make_args)
     execute_cmd(cmd)
 
 
