@@ -434,18 +434,24 @@ def usage():
     print(USAGE)
 
 
-def workon(args):
+def workon(args=None):
     '''
     Print commands to set PG_VENV, PATH, PGDATA, LD_LIBRARY_PATH.
     The result of this command is made to be sourced by the shell.
     Uses PG_INSTALL_DIR
-    '''
-    # we only expect one argument
-    if len(args) > 1:
-        raise TypeError
-    pg_venv = args[0]
 
+    There is a default value for args even though the parameter is mandatory,
+    because we want to exit gracefully (since the output of this function is
+    sourced).
+    '''
     try:
+        # we only expect one argument
+        if args is None:
+            raise TypeError("Missing argument pg_venv. See 'pg help' for details")
+        if len(args) > 1:
+            raise TypeError("Too many arguments. See 'pg help' for details")
+        pg_venv = args[0]
+
         previous_pg_venv  = os.environ.get('PG_VENV', None)
         pg_install_dir = get_env_var('PG_INSTALL_DIR')
 
