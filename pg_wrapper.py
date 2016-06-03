@@ -331,7 +331,7 @@ def make(make_args=None):
     # convert make_args list into a string
     make_args = ' '.join(make_args)
 
-    cmd = 'cd {} && make {}'.format(pg_dir, make_args)
+    cmd = 'cd {} && make -s {}'.format(pg_dir, make_args)
     execute_cmd(cmd)
 
 
