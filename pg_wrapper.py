@@ -361,7 +361,11 @@ def start(args=None):
         pg_venv = args[0]
 
     # start postgresql
-    cmd = '{} start'.format(os.path.join(get_pg_bin(pg_venv), 'pg_ctl'))
+    cmd = '{} start -D {} -l {}'.format(
+        os.path.join(get_pg_bin(pg_venv), 'pg_ctl'),
+        get_pg_data_dir(pg_venv),
+        get_pg_log(pg_venv)
+    )
     execute_cmd(cmd)
 
 
