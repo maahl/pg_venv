@@ -43,6 +43,15 @@ Actions:
 
         Uses environment variable PG_DIR
 
+    log, l:
+        pg log [<pg_venv>]
+
+        <pg_venv>: for which instance to show the log
+
+        Show the server log, using less.
+
+        Uses environment variable PG_DATA_DIR
+
     make, m:
         pg make [<make_args>]
 
