@@ -35,7 +35,7 @@ case "$state" in
     ;;
     (args)
         case "$line[1]" in
-            (start|stop|workon|w)
+            (l|log|start|stop|w|workon)
                 _values 'pg versions' "${(uonzf)$(ls $PG_INSTALL_DIR | cut -d '-' -f 2)}"
             ;;
         esac
