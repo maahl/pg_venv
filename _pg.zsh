@@ -19,6 +19,8 @@ case "$state" in
             "help:display the help text"
             "i:alias for 'install'"
             "install:run make install in source dir"
+            "l:alias for 'log'"
+            "log:display server log"
             "m:alias for 'make'"
             "make:run make in source dir"
             "mc:alias for 'make_clean'"

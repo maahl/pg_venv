@@ -241,6 +241,14 @@ def get_pg_lib(pg_venv):
     return os.path.join(pg_install_dir, 'postgresql-{}'.format(pg_venv), 'lib')
 
 
+def get_pg_log(pg_venv):
+    '''
+    Compute the path where a pg_venv's logs will be stored
+    '''
+    pg_data_dir = get_env_var('PG_DATA_DIR')
+    return os.path.join(pg_data_dir, 'postgresql-{}'.format(pg_venv) + '.log')
+
+
 def get_shell_function():
     '''
     Return the text for the function pg(), used as a wrapper around this
@@ -345,6 +353,24 @@ def make_clean():
     cmd = 'cd {} && make clean'.format(pg_dir)
     execute_cmd(cmd)
 
+
+def server_log(args=None):
+    '''
+    Display the server log
+    If a pg_venv name is not provided, show the log for the current one.
+    '''
+    if args is None:
+        pg_venv = get_env_var('PG_VENV')
+    else:
+        # only one argument is allowed
+        if len(args) > 1:
+            raise TypeError
+
+        pg_venv = args[0]
+
+    # show the log
+    cmd = 'less {}'.format(get_pg_log(pg_venv))
+    execute_cmd(cmd)
 
 def start(args=None):
     '''
@@ -461,6 +487,7 @@ ACTIONS = {
     'get_shell_function': get_shell_function,
     'help': usage,
     'install': install,
+    'log': server_log,
     'make': make,
     'make_clean': make_clean,
     'start': start,
@@ -473,6 +500,7 @@ ALIASES = {
     'ck': 'check',
     'h': 'help',
     'i': 'install',
+    'l': 'log',
     'm': 'make',
     'mc': 'make_clean',
     'w': 'workon',
