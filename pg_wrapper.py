@@ -7,6 +7,8 @@ import sys
 
 LOG_PREFIX = 'pg: '
 USAGE = '''
+This is a wrapper script for various PostgreSQL common actions.
+
 Usage:
     pg <action> [args]
 
@@ -64,6 +66,10 @@ Actions:
         Run `make clean` in postgresql source dir
         Uses environment variable PG_DIR
 
+    rmdata:
+        Removes the data directory for the current pg
+        Uses environment variable PG_DATA_DIR
+
     start:
         pg start [<pg_venv>]
 
@@ -78,7 +84,7 @@ Actions:
 
         <pg_venv>: which instance to stop
 
-        stop apostgresql instance. If <pg_venv> is not specified, stop the
+        stop a postgresql instance. If <pg_venv> is not specified, stop the
         current one (defined by PG_VENV)
         Uses environment variables PG_VENV and PG_INSTALL_DIR
 
@@ -363,6 +369,42 @@ def make_clean():
     execute_cmd(cmd)
 
 
+def rmdata(args=None):
+    '''
+    Removes the data directory for the specified pg_venv.
+    If a pg_venv is not provided, remove the data directory for the current one.
+
+    Uses env var PG_DATA_DIR
+    '''
+    if args is None:
+        pg_venv = get_env_var('PG_VENV')
+    else:
+        # only one argument is allowed
+        if len(args) > 1:
+            raise TypeError
+
+        pg_venv = args[0]
+
+    pg_data_dir = get_pg_data_dir(pg_venv)
+
+    # ask for a confirmation to remove the data
+    log(
+        'You are about to delete all the data for the {} pg_venv, located in {}. ' + \
+        'Please type its name to confirm:'.format(
+            'specified' if args else 'current',
+            pg_data_dir
+        ),
+        message_type='warning'
+    )
+    data_delete_confirmation = input()
+
+    if data_delete_confirmation != pg_venv:
+        log("The data won't be deleted.", message_type='error')
+    else:
+        cmd = 'rm -r {}/*'.format(pg_data_dir)
+        execute_cmd(cmd)
+
+
 def server_log(args=None):
     '''
     Display the server log
@@ -505,6 +547,7 @@ ACTIONS = {
     'log': server_log,
     'make': make,
     'make_clean': make_clean,
+    'rmdata': rmdata,
     'start': start,
     'stop': stop,
     'workon': workon,
