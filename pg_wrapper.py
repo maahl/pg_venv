@@ -478,7 +478,7 @@ def usage():
 
 def workon(args=None):
     '''
-    Print commands to set PG_VENV, PATH, PGDATA, LD_LIBRARY_PATH.
+    Print commands to set PG_VENV, PATH, PGDATA, LD_LIBRARY_PATH, PGPORT.
     The result of this command is made to be sourced by the shell.
     Uses PG_INSTALL_DIR
 
@@ -519,12 +519,17 @@ def workon(args=None):
         ld_library_path.insert(0, pg_lib_path)
         output += 'export LD_LIBRARY_PATH={}\n'.format(':'.join(ld_library_path))
 
+        # set PGPORT variable
+        # port is determined from the venv name, 1024 <= port <= 65535
+        # collisions are possible and not handled
+        pg_port = int(''.join(format(ord(l), 'b') for l in pg_venv), base=2) % (65535 - 1024) + 1024
+        output += 'export PGPORT={}\n'.format(pg_port)
 
-        # update PS1 variable to display current pg_venv, and remove previous
-        # version
-        # Can't use .format() here for some obscure reason because of that
-        # characters mess
-        output += r'export PS1="[pg-' + pg_venv + r']${PS1#\[pg-*\]}"' + '\n'
+        # update PS1 variable to display current pg_venv and PGPORT, and remove
+        # previous version
+        # Can't use .format() here for some obscure reason
+        # because of that characters mess
+        output += r'export PS1="[pg:' + pg_venv + ':' + str(pg_port) + r']${PS1#\[pg:*\]}"' + '\n'
 
         # set PG_VENV variable
         output += 'export PG_VENV={}\n'.format(pg_venv)
@@ -532,6 +537,7 @@ def workon(args=None):
         # set PGDATA variable
         pg_data = get_pg_data_dir(pg_venv)
         output += 'export PGDATA={}\n'.format(pg_data)
+
     except Exception as e:
         output = 'echo -e "\033[0;31m{}\033[0;m"'.format(e)
 
