@@ -5,7 +5,7 @@ It is intended for PostgreSQL development purposes, and has not been thoroughly
 tested. Use at your own risks.
 
 It is inspired by python virtualenv: when working in a pg\_venv, the relevant
-environment variables are set so that you don't have tow worry about it
+environment variables are set so that you don't have to worry about it
 yourself.
 
 Different pg\_venv can use different versions of PostgreSQL without problem.
@@ -28,6 +28,9 @@ It generates a bash function to determine at runtime if the output of a command
 should be displayed (general case) or sourced (currently, only needed when
 switching venv). A comment in the output of this function will tell you the
 exact line you should copy in your bashrc.
+
+The meaning of the variables is explained in the help text: `./pg_wrapper.py
+--help`.
 
 For example, in your bashrc:
 
