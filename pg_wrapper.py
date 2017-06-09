@@ -223,7 +223,7 @@ def get_env_var(env_var):
     except KeyError:
         # handle PG_VENV differently, as it mustn't be set by the user directly
         if env_var == 'PG_VENV':
-            log('PG_VENV not set. Please run `pg workon <pg_venv> first`', 'error')
+            log('PG_VENV not set. Please run `pg workon <pg_venv>` first', 'error')
 
         else:
             log ('Please set environment variable {}. See help for '
