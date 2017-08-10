@@ -66,6 +66,9 @@ Actions:
         Run `make clean` in postgresql source dir
         Uses environment variable PG_DIR
 
+    restart:
+        Similar to running `pg stop && pg start`
+
     rmdata:
         Removes the data directory for the current pg
         Uses environment variable PG_DATA_DIR
@@ -369,6 +372,14 @@ def make_clean():
     execute_cmd(cmd)
 
 
+def restart():
+    '''
+    Runs actions stop and start
+    '''
+    stop()
+    start()
+
+
 def rmdata(args=None):
     '''
     Removes the data directory for the specified pg_venv.
@@ -554,6 +565,7 @@ ACTIONS = {
     'make': make,
     'make_clean': make_clean,
     'rmdata': rmdata,
+    'restart': restart,
     'start': start,
     'stop': stop,
     'workon': workon,
