@@ -29,7 +29,7 @@ case "$state" in
             "rmdata:remove the data of a postgresql instance"
             "start:start a postgresql instance"
             "stop:stop a postgresql instance"
-            "tail: executes `tail -f` on the log file"
+            "tail:executes 'tail -f' on the log file"
             "w:alias for 'workon'"
             "workon:work on a particular postgresql instance"
         )
