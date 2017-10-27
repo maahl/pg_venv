@@ -144,6 +144,29 @@ def check():
     execute_cmd(cmd)
 
 
+def check_configure_venv():
+    '''
+    Check that the paths that were given to the configure action correspond to
+    the current pg_venv
+
+    This is useful for preventing a "make install" that would override files
+    that belong to other pg_venv.
+    Returns True if the configure options correspond to the current pg_venv,
+    false otherwise.
+    '''
+    pg_dir = get_env_var('PG_DIR')
+    pg_bin = get_pg_bin(get_env_var('PG_VENV'))
+
+    # check what the configuration is in the postgresql source dir
+    try:
+        with open(os.path.join(pg_dir, 'src', 'port', 'pg_config_paths.h'), 'r') as f:
+            if pg_bin not in f.readline():
+                log('Postgresql is configured for another pg_venv. You need to re-run configure first.', 'error')
+                exit(-1)
+    except IOError:
+        pass
+
+
 def configure(additional_args=None):
     '''
     Run `./configure` in postgresql dir
@@ -234,7 +257,7 @@ def get_env_var(env_var):
             log('PG_VENV not set. Please run `pg workon <pg_venv>` first', 'error')
 
         else:
-            log ('Please set environment variable {}. See help for '
+            log('Please set environment variable {}. See help for '
                 'detail (pg help).'.format(env_var), 'error')
 
         exit(-1)
@@ -325,6 +348,7 @@ def install():
     Run make install in postgresql source dir
     '''
     pg_dir = get_env_var('PG_DIR')
+    check_configure_venv()
     cmd = 'cd {} && make install && cd contrib && make install'.format(pg_dir)
     execute_cmd(cmd)
 
@@ -356,6 +380,7 @@ def make(make_args=None):
     <make_args> options that are passed to make
     '''
     pg_dir = get_env_var('PG_DIR')
+    check_configure_venv()
 
     if make_args is None:
         make_args = []
@@ -373,6 +398,7 @@ def make_clean():
     Uses env var PG_DIR
     '''
     pg_dir = get_env_var('PG_DIR')
+    check_configure_venv()
     cmd = 'cd {} && make clean'.format(pg_dir)
     execute_cmd(cmd)
 
