@@ -23,8 +23,9 @@ Actions:
         <additional_args>: additional options passed to the configure script
 
         Run `./configure` in postgresql source dir.
-        If PG_CONFIGURE_OPTIONS doesn't contain '--prefix' option, postgresql
-        install path will be set to "$PG_INSTALL_DIR/postgresql-$PG_VENV".
+        Postgresql's install path will be set to
+        "$PG_INSTALL_DIR/postgresql-$PG_VENV". If you want to store a specific
+        pg_venv at another place, you can symlink this location to the new one.
 
         Uses environment variables PG_DIR, PG_CONFIGURE_OPTIONS, PG_INSTALL_DIR
         and PG_VENV.
@@ -123,7 +124,6 @@ Environment variables:
         Postgresql builds will be installed in this directory.
         Each build will be installed in $PG_INSTALL_DIR/postgresql-$PG_VENV.
         Needs to be an absolute path.
-        Not used if option '--prefix' is passed to 'configure' action.
 
     PG_VENV:
         Version of postgresql we are currently working on.
