@@ -163,7 +163,7 @@ def check_configure_venv():
             if pg_bin not in f.readline():
                 log('Postgresql is configured for another pg_venv. You need to re-run configure first.', 'error')
                 exit(-1)
-    except IOError:
+    except FileNotFoundError:
         pass
 
 
