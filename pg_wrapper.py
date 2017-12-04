@@ -430,7 +430,7 @@ def rmdata(args=None):
 
     # ask for a confirmation to remove the data
     log(
-        'You are about to delete all the data for the {} pg_venv, located in {}. ' + \
+        'You are about to delete all the data for the {} pg_venv, located in {}. '
         'Please type its name to confirm:'.format(
             'specified' if args else 'current',
             pg_data_dir
