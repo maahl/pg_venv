@@ -398,7 +398,6 @@ def make_clean():
     Uses env var PG_DIR
     '''
     pg_dir = get_env_var('PG_DIR')
-    check_configure_venv()
     cmd = 'cd {} && make clean'.format(pg_dir)
     execute_cmd(cmd)
 
