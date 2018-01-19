@@ -51,7 +51,7 @@ Actions:
 
         <pg_venv>: for which instance to show the log
 
-        Show the server log, using less.
+        Show the server log, using `tail -f`.
 
         Uses environment variable PG_DATA_DIR
 
@@ -91,11 +91,6 @@ Actions:
         stop a postgresql instance. If <pg_venv> is not specified, stop the
         current one (defined by PG_VENV)
         Uses environment variables PG_VENV and PG_INSTALL_DIR
-
-    tail:
-        Executes `tail -f` on the log file.
-
-        Uses environment variable PG_DATA_DIR
 
     workon, w:
         pg workon <pg_venv>
@@ -461,7 +456,7 @@ def server_log(args=None):
         pg_venv = args[0]
 
     # show the log
-    cmd = 'less +G {}'.format(get_pg_log(pg_venv))
+    cmd = 'tail -f {}'.format(get_pg_log(pg_venv))
     execute_cmd(cmd)
 
 def start(args=None):
@@ -510,25 +505,6 @@ def stop(args=None):
         cmd = '{} stop -D {}'.format(pg_ctl, pg_data_dir)
 
     # stop postgresql
-    execute_cmd(cmd)
-
-
-def tail(args=None):
-    '''
-    Tails the server log
-    If a pg_venv name is not provided, show the log for the current one.
-    '''
-    if args is None:
-        pg_venv = get_env_var('PG_VENV')
-    else:
-        # only one argument is allowed
-        if len(args) > 1:
-            raise TypeError
-
-        pg_venv = args[0]
-
-    # show the log
-    cmd = 'tail -f {}'.format(get_pg_log(pg_venv))
     execute_cmd(cmd)
 
 
@@ -617,7 +593,6 @@ ACTIONS = {
     'restart': restart,
     'start': start,
     'stop': stop,
-    'tail': tail,
     'workon': workon,
 }
 
