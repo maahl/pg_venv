@@ -36,8 +36,7 @@ For example, in your bashrc:
 
 ```
 export PG_DIR=$HOME/projects/postgresql
-export PG_INSTALL_DIR=$HOME/tmp/pgsql
-export PG_DATA_DIR=$HOME/tmp/pgsql-data
+export PG_VIRTUALENV_HOME=$HOME/.pg_virtualenvs
 export PG_CONFIGURE_OPTIONS="--enable-cassert --enable-debug --enable-depend"
 source <(/home/user/projects/pg_wrapper/pg_wrapper.py get_shell_function)
 ```
@@ -53,12 +52,17 @@ derived from the environment variables, not from your current working directory.
 Example usage:
 
 ```sh
+# create a pg_venv
+# this will copy postgres' source, compile it, install it, start it and create a
+# db
+pg create_venv awesomefeature
+
 # enter a pg_venv
 # this will set several env variables derived from the name of the venv, e.g.
 # the install directory, data directory, shell prompt, etc.
 pg workon awesomefeature
 
-# compile postgres
+# recompile postgres
 # note: when switching venv, we do not checkout appropriate branches in the
 # postgresql git repository, no magic at all here: it would involve too much
 # guessing. So make sure you are using the appropriate branch before compiling!
