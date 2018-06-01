@@ -14,6 +14,7 @@ case "$state" in
             "check:run make check in postgresql source dir"
             "c:alias for 'configure'"
             "configure:run ./configure in source dir"
+            "create_venv: create a new virtualenv"
             "get_shell_function:output the wrapper function"
             "h:alias for 'help'"
             "help:display the help text"
@@ -29,7 +30,6 @@ case "$state" in
             "rmdata:remove the data of a postgresql instance"
             "start:start a postgresql instance"
             "stop:stop a postgresql instance"
-            "tail:executes 'tail -f' on the log file"
             "w:alias for 'workon'"
             "workon:work on a particular postgresql instance"
         )
@@ -39,7 +39,7 @@ case "$state" in
     (args)
         case "$line[1]" in
             (l|log|start|stop|w|workon)
-                _values 'pg versions' "${(uonzf)$(ls $PG_INSTALL_DIR | cut -d '-' -f 2)}"
+                _values 'pg versions' "${(uonzf)$(ls $PG_VIRTUALENV_HOME | cut -d '-' -f 2)}"
             ;;
         esac
     ;;

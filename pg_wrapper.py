@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import psutil
 import subprocess
 import sys
 
@@ -10,6 +11,8 @@ USAGE = '''
 This is a wrapper script for various PostgreSQL common actions.
 
 Usage:
+    pg create_venv <pg_venv>
+    pg workon <pg_venv>
     pg <action> [args]
 
 Actions:
@@ -29,6 +32,11 @@ Actions:
 
         Uses environment variables PG_DIR, PG_CONFIGURE_OPTIONS, PG_INSTALL_DIR
         and PG_VENV.
+
+    create_venv:
+        Create a new pg_venv, by copying the postgres' source tree, compiling
+        it, installing it, running initdb, starting the server and creating a
+        db using createdb.
 
     get_shell_function:
         Return the function pg() that's used as a wrapper around this script
@@ -111,14 +119,10 @@ Environment variables:
     PG_DIR:
         Contains path to the postgresql source code
 
-    PG_DATA_DIR:
-        Postgresql instances data will be stored in this directory.
-        Each instance will have its data in $PG_DATA_DIR/postgresql-<pg_venv>
-
-    PG_INSTALL_DIR:
-        Postgresql builds will be installed in this directory.
-        Each build will be installed in $PG_INSTALL_DIR/postgresql-$PG_VENV.
-        Needs to be an absolute path.
+    PG_VIRTUALENV_HOME:
+        Contains the data for a pg_venv, including a copy of the source code
+        that was used to generate the binaries, the binaries themselves, and
+        the data dir.
 
     PG_VENV:
         Version of postgresql we are currently working on.
@@ -134,35 +138,13 @@ def check():
 
     Uses env var PG_DIR
     '''
-    pg_dir = get_env_var('PG_DIR')
-    cmd = 'cd {} && make check'.format(pg_dir)
-    execute_cmd(cmd)
+    pg_venv = get_env_var('PG_VENV')
+    pg_src_dir = get_pg_src(pg_venv)
+    cmd = 'cd {} && make -s check'.format(pg_src_dir)
+    execute_cmd(cmd, 'Running make check', process_output=False)
 
 
-def check_configure_venv():
-    '''
-    Check that the paths that were given to the configure action correspond to
-    the current pg_venv
-
-    This is useful for preventing a "make install" that would override files
-    that belong to other pg_venv.
-    Returns True if the configure options correspond to the current pg_venv,
-    false otherwise.
-    '''
-    pg_dir = get_env_var('PG_DIR')
-    pg_bin = get_pg_bin(get_env_var('PG_VENV'))
-
-    # check what the configuration is in the postgresql source dir
-    try:
-        with open(os.path.join(pg_dir, 'src', 'port', 'pg_config_paths.h'), 'r') as f:
-            if pg_bin not in f.readline():
-                log('Postgresql is configured for another pg_venv. You need to re-run configure first.', 'error')
-                exit(-1)
-    except FileNotFoundError:
-        pass
-
-
-def configure(additional_args=None):
+def configure(additional_args=None, pg_venv=None, verbose=True, exit_on_fail=False):
     '''
     Run `./configure` in postgresql dir
 
@@ -170,28 +152,75 @@ def configure(additional_args=None):
     PG_CONFIGURE_OPTIONS for options.
     additional_args parameter allows to add more options to configure
     '''
-    pg_dir = get_env_var('PG_DIR')
+    if not pg_venv:
+        pg_venv = get_env_var('PG_VENV')
+    pg_src_dir = get_pg_src(pg_venv)
     pg_configure_options = os.environ.get('PG_CONFIGURE_OPTIONS', '')
 
     # if prefix is set in PG_CONFIGURE_OPTIONS, ignore it and display a warning
     warning_prefix_ignored = '--prefix' in pg_configure_options
 
-    pg_venv = get_env_var('PG_VENV')
-    pg_install_dir = get_env_var('PG_INSTALL_DIR')
-    pg_configure_options += ' --prefix {}'.format(os.path.join(pg_install_dir, 'postgresql-' + pg_venv))
+    pg_configure_options += ' --prefix {}'.format(get_pg_venv_dir(pg_venv))
 
     if additional_args is None:
         additional_args = []
     # convert additional_args list to a string
     additional_args = ' '.join(additional_args)
 
-    cmd = 'cd {} && ./configure {} {}'.format(pg_dir, pg_configure_options, additional_args)
-    execute_cmd(cmd)
+    cmd = 'cd {} && ./configure --quiet {} {}'.format(pg_src_dir, pg_configure_options, additional_args)
+    execute_cmd(cmd, 'Running configure script', verbose=verbose, exit_on_fail=exit_on_fail)
 
     # display warning if necessary
     if warning_prefix_ignored:
         log('PG_CONFIGURE_OPTIONS contained option --prefix, but this has been '
             'ignored.', 'warning')
+
+
+def create_venv(args=None):
+    '''
+    Create a new venv, by copying the source tree, configuring, compiling,
+    installing, initializing the cluster, creating a db and starting the
+    server.
+    '''
+    if args is None:
+        pg_venv = get_env_var('PG_VENV')
+    else:
+        # only one argument is allowed
+        if len(args) > 1:
+            raise TypeError
+
+        pg_venv = args[0]
+
+    pg_dir = get_env_var('PG_DIR')
+
+    # create the necessary directories
+    cmd = 'mkdir -p "{}"'.format(
+        get_pg_src(pg_venv),
+    )
+    execute_cmd(cmd, 'Creating directories', exit_on_fail=True)
+
+    # copy the source tree
+    current_commit = subprocess.check_output('cd {} && git describe --tags'.format(pg_dir), shell=True).strip().decode('utf-8')
+
+    cmd = 'cd {} && git archive --format=tar HEAD | (cd {} && tar xf -)'.format(pg_dir, get_pg_src(pg_venv))
+    execute_cmd(cmd, "Copying PostgreSQL's source tree, commit {}".format(current_commit), exit_on_fail=True)
+
+
+    configure(pg_venv=pg_venv, exit_on_fail=True)
+    make(make_args=['-j {}'.format(psutil.cpu_count())], pg_venv=pg_venv, exit_on_fail=True)
+    install(pg_venv=pg_venv, exit_on_fail=True)
+
+    pg_bin = get_pg_bin(pg_venv)
+
+    cmd = os.path.join(pg_bin, 'initdb')
+    execute_cmd(cmd, 'Initializing database', process_output=False, exit_on_fail=True)
+
+    start(exit_on_fail=True)
+
+    cmd = os.path.join(pg_bin, 'createdb')
+    execute_cmd(cmd, 'Creating a database', exit_on_fail=True)
+
+    log('pg_virtualenv {} created. Run `pg workon {}` to use it.'.format(pg_venv, pg_venv), 'success')
 
 
 def execute_action(action, action_args):
@@ -204,9 +233,9 @@ def execute_action(action, action_args):
         if action_args:
             try:
                 ACTIONS[action](action_args)
-            except TypeError:
+            except TypeError as e:
                 log('some arguments were not understood', 'error')
-                usage()
+                log('error message: {}'.format(e))
                 exit(2)
         else:
             ACTIONS[action]()
@@ -224,20 +253,45 @@ def execute_action(action, action_args):
         exit(-1)
 
 
-def execute_cmd(cmd):
+def execute_cmd(cmd, cmd_description='', verbose=True, verbose_cmd=False, exit_on_fail=False, process_output=True):
     '''
     Execute a shell command, binding stdin and stdout to this process' stdin
-    and stdout
+    and stdout.
+    The cmd_description will be displayed, along with OK or failed depending
+    on the return code of the process, if verbose is True.
+    The command to be executed will be printed if verbose_cmd is True.
+    The process' output will be displayed if process_output is True, or if the
+    process returns a non-zero code.
     '''
-    log('executing `{}`'.format(cmd))
-    process = subprocess.Popen(cmd, shell=True)
-    process.communicate()
+    if verbose_cmd:
+        log('executing `{}`'.format(cmd))
 
-    if process.returncode == 0:
-        log('command successfully executed', 'success')
+    if verbose:
+        log(cmd_description + '... ', end='')
+
+    if not process_output:
+        process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     else:
-        log('command failed', 'error')
-        log('command used: {}'.format(cmd), 'error')
+        process = subprocess.Popen(cmd, shell=True)
+    out, err = process.communicate()
+
+    # display the process output if it returned non-zero, even if process output
+    # is disabled.
+    if process.returncode != 0 and process_output == False:
+        print() # new line
+        print(err.decode('utf-8'))
+
+    if verbose:
+        if process.returncode == 0:
+            log('OK', 'success', prefix=False)
+        else:
+            log('failed', 'error')
+            log('command used: {}'.format(cmd), 'error', prefix=False)
+
+    if exit_on_fail and process.returncode != 0:
+        exit(-1)
+
+    return process.returncode
 
 
 def get_env_var(env_var):
@@ -258,36 +312,47 @@ def get_env_var(env_var):
         exit(-1)
 
 
-def get_pg_data_dir(pg_venv):
+def get_pg_venv_dir(pg_venv):
+    '''
+    Return the directory containing a pg_venv
+    '''
+    pg_venv_home = get_env_var('PG_VIRTUALENV_HOME')
+    return os.path.join(pg_venv_home, pg_venv)
+
+
+def get_pg_src(pg_venv):
     '''
     Compute PGDATA for a pg_venv
     '''
-    pg_data_dir = get_env_var('PG_DATA_DIR')
-    return os.path.join(pg_data_dir, 'postgresql-{}'.format(pg_venv))
+    return os.path.join(get_pg_venv_dir(pg_venv), 'src')
+
+
+def get_pg_data(pg_venv):
+    '''
+    Compute PGDATA for a pg_venv
+    '''
+    return os.path.join(get_pg_venv_dir(pg_venv), 'data')
 
 
 def get_pg_bin(pg_venv):
     '''
     Compute the path where a pg_venv has been/will be installed
     '''
-    pg_install_dir = get_env_var('PG_INSTALL_DIR')
-    return os.path.join(pg_install_dir, 'postgresql-{}'.format(pg_venv), 'bin')
+    return os.path.join(get_pg_venv_dir(pg_venv), 'bin')
 
 
 def get_pg_lib(pg_venv):
     '''
     Compute the path where a pg_venv's libs have been/will be installed
     '''
-    pg_install_dir = get_env_var('PG_INSTALL_DIR')
-    return os.path.join(pg_install_dir, 'postgresql-{}'.format(pg_venv), 'lib')
+    return os.path.join(get_pg_venv_dir(pg_venv), 'lib')
 
 
 def get_pg_log(pg_venv):
     '''
     Compute the path where a pg_venv's logs will be stored
     '''
-    pg_data_dir = get_env_var('PG_DATA_DIR')
-    return os.path.join(pg_data_dir, 'postgresql-{}'.format(pg_venv) + '.log')
+    return os.path.join(get_pg_venv_dir(pg_venv), '{}.log'.format(pg_venv))
 
 
 def get_shell_function():
@@ -338,52 +403,65 @@ def get_shell_function():
     print(output)
 
 
-def install():
+def install(pg_venv=None, verbose=True, exit_on_fail=False):
     '''
     Run make install in postgresql source dir
     '''
-    pg_dir = get_env_var('PG_DIR')
-    check_configure_venv()
-    cmd = 'cd {} && make install && cd contrib && make install'.format(pg_dir)
-    execute_cmd(cmd)
+    if not pg_venv:
+        pg_venv = get_env_var('PG_VENV')
+    pg_src_dir = get_pg_src(pg_venv)
+    cmd = 'cd {} && make -s install && cd contrib && make -s install'.format(pg_src_dir)
+    execute_cmd(cmd, 'Installing PostgreSQL', verbose, process_output=False, exit_on_fail=exit_on_fail)
 
 
-def log(message, message_type='log'):
+def colorize(message, message_type='log'):
     '''
-    Print a message to stdout
-    message_type changes the color in which the message is displayed
-    Possible message_type values: log, error, success
+    Add color code to a string
     '''
     if message_type == 'log':
         # don't change color
         pass
     elif message_type == 'error':
+        # red
         message = '\033[0;31m' + message + '\033[0;m'
     elif message_type == 'success':
+        # green
         message = '\033[0;32m' + message + '\033[0;m'
     elif message_type == 'warning':
+        # yellow
         message = '\033[0;33m' + message + '\033[0;m'
 
-    print(LOG_PREFIX + message)
+    return message
 
 
-def make(make_args=None):
+def log(message, message_type='log', end='\n', prefix=True):
+    '''
+    Print a message to stdout
+    message_type changes the color in which the message is displayed
+    Possible message_type values: log, error, success
+    '''
+    print((LOG_PREFIX if prefix else '') + colorize(message, message_type), end=end, flush=True)
+
+
+
+def make(make_args=None, pg_venv=None, verbose=True, exit_on_fail=False):
     '''
     Run make in the postgresql source dir
 
     Uses env var PG_DIR
     <make_args> options that are passed to make
     '''
-    pg_dir = get_env_var('PG_DIR')
-    check_configure_venv()
+    if not pg_venv:
+        pg_venv = get_env_var('PG_VENV')
+    pg_src_dir = get_pg_src(pg_venv)
 
     if make_args is None:
         make_args = []
     # convert make_args list into a string
     make_args = ' '.join(make_args)
 
-    cmd = 'cd {} && make -s {} && cd contrib && make -s {}'.format(pg_dir, make_args, make_args)
-    execute_cmd(cmd)
+    cmd = 'cd {} && make -s {} && cd contrib && make -s {}'.format(pg_src_dir, make_args, make_args)
+    execute_cmd(cmd, 'Compiling PostgreSQL', verbose, exit_on_fail=exit_on_fail, process_output=False)
 
 
 def make_clean():
@@ -392,25 +470,38 @@ def make_clean():
 
     Uses env var PG_DIR
     '''
-    pg_dir = get_env_var('PG_DIR')
-    cmd = 'cd {} && make clean'.format(pg_dir)
-    execute_cmd(cmd)
+    pg_venv = get_env_var('PG_VENV')
+    pg_src_dir = get_pg_src(pg_venv)
+    cmd = 'cd {} && make -s clean'.format(pg_src_dir)
+    execute_cmd(cmd, 'Running make clean')
 
 
 def restart():
     '''
     Runs actions stop and start
     '''
-    stop()
+    if pg_is_running():
+        stop()
     start()
+
+
+def pg_is_running():
+    '''
+    Check if postgres is running
+    '''
+    pg_venv = get_env_var('PG_VENV')
+    pg_ctl = os.path.join(get_pg_bin(pg_venv), 'pg_ctl')
+
+    cmd = '{} status'.format(pg_ctl)
+    return_code = execute_cmd(cmd, verbose=False, process_output=False)
+
+    return return_code == 0
 
 
 def rmdata(args=None):
     '''
     Removes the data directory for the specified pg_venv.
     If a pg_venv is not provided, remove the data directory for the current one.
-
-    Uses env var PG_DATA_DIR
     '''
     if args is None:
         pg_venv = get_env_var('PG_VENV')
@@ -421,7 +512,7 @@ def rmdata(args=None):
 
         pg_venv = args[0]
 
-    pg_data_dir = get_pg_data_dir(pg_venv)
+    pg_data_dir = get_pg_data(pg_venv)
 
     # ask for a confirmation to remove the data
     log(
@@ -437,8 +528,10 @@ def rmdata(args=None):
     if data_delete_confirmation != pg_venv:
         log("The data won't be deleted.", message_type='error')
     else:
+        if pg_is_running():
+            stop()
         cmd = 'rm -r {}/*'.format(pg_data_dir)
-        execute_cmd(cmd)
+        execute_cmd(cmd, 'Removing all the data')
 
 
 def server_log(args=None):
@@ -457,9 +550,9 @@ def server_log(args=None):
 
     # show the log
     cmd = 'tail -f {}'.format(get_pg_log(pg_venv))
-    execute_cmd(cmd)
+    execute_cmd(cmd, 'Displaying server log')
 
-def start(args=None):
+def start(args=None, exit_on_fail=False):
     '''
     Start a postgresql instance
     If a pg_venv name is not provided, start the current one.
@@ -476,10 +569,10 @@ def start(args=None):
     # start postgresql
     cmd = '{} start -D {} -l {} --core-files --wait'.format(
         os.path.join(get_pg_bin(pg_venv), 'pg_ctl'),
-        get_pg_data_dir(pg_venv),
+        get_pg_data(pg_venv),
         get_pg_log(pg_venv)
     )
-    execute_cmd(cmd)
+    execute_cmd(cmd, 'Starting PostgreSQL', process_output=False, exit_on_fail=exit_on_fail)
 
 
 def stop(args=None):
@@ -499,13 +592,13 @@ def stop(args=None):
         pg_venv = args[0]
         pg_ctl = os.path.join(get_pg_bin(pg_venv), 'pg_ctl')
 
-        # if version is given as a parameter, pass the data dir as parameter to
+        # if venv is given as a parameter, pass the data dir as parameter to
         # pg_ctl
-        pg_data_dir = get_pg_data_dir(pg_venv)
+        pg_data_dir = get_pg_data(pg_venv)
         cmd = '{} stop -D {}'.format(pg_ctl, pg_data_dir)
 
     # stop postgresql
-    execute_cmd(cmd)
+    execute_cmd(cmd, 'Stopping PostgreSQL', process_output=False)
 
 
 def usage():
@@ -571,7 +664,7 @@ def workon(args=None):
         output += 'export PG_VENV={}\n'.format(pg_venv)
 
         # set PGDATA variable
-        pg_data = get_pg_data_dir(pg_venv)
+        pg_data = get_pg_data(pg_venv)
         output += 'export PGDATA={}\n'.format(pg_data)
 
     except Exception as e:
@@ -583,6 +676,7 @@ def workon(args=None):
 ACTIONS = {
     'check': check,
     'configure': configure,
+    'create_venv': create_venv,
     'get_shell_function': get_shell_function,
     'help': usage,
     'install': install,
