@@ -27,11 +27,10 @@ Actions:
 
         Run `./configure` in postgresql source dir.
         Postgresql's install path will be set to
-        "$PG_INSTALL_DIR/postgresql-$PG_VENV". If you want to store a specific
+        "$PG_DIR/$PG_VENV". If you want to store a specific
         pg_venv at another place, you can symlink this location to the new one.
 
-        Uses environment variables PG_DIR, PG_CONFIGURE_OPTIONS, PG_INSTALL_DIR
-        and PG_VENV.
+        Uses environment variables PG_DIR, PG_CONFIGURE_OPTIONS, and PG_VENV.
 
     create_venv:
         Create a new pg_venv, by copying the postgres' source tree, compiling
@@ -61,8 +60,6 @@ Actions:
 
         Show the server log, using `tail -f`.
 
-        Uses environment variable PG_DATA_DIR
-
     make, m:
         pg make [<make_args>]
 
@@ -80,7 +77,6 @@ Actions:
 
     rmdata:
         Removes the data directory for the current pg
-        Uses environment variable PG_DATA_DIR
 
     start:
         pg start [<pg_venv>]
@@ -89,7 +85,7 @@ Actions:
 
         Start a postgresql instance from pg_venv. If <pg_venv> is not specified,
         start the current one (defined by PG_VENV).
-        Uses environment variables PG_VENV and PG_INSTALL_DIR
+        Uses environment variables PG_VENV
 
     stop:
         pg stop [<pg_venv>]
@@ -98,14 +94,14 @@ Actions:
 
         stop a postgresql instance. If <pg_venv> is not specified, stop the
         current one (defined by PG_VENV)
-        Uses environment variables PG_VENV and PG_INSTALL_DIR
+        Uses environment variables PG_VENV
 
     workon, w:
         pg workon <pg_venv>
 
         <pg_venv>: a string to identify the current postgresql build
 
-        Set PATH to use PG_INSTALL_DIR/bin, set PG_VENV, PGPORT, PGDATA,
+        Set PATH to use PG_DIR/bin, set PG_VENV, PGPORT, PGDATA,
         LD_LIBRARY_PATH, and display <pg_venv> in the prompt (PS1). The
         output of this action is made to be sourced by bash (because it changes
         the environment). See action 'get-shell-function' to ease that.
@@ -221,6 +217,49 @@ def create_venv(args=None):
     execute_cmd(cmd, 'Creating a database', exit_on_fail=True)
 
     log('pg_virtualenv {} created. Run `pg workon {}` to use it.'.format(pg_venv, pg_venv), 'success')
+
+
+def rm_virtualenv(args=None):
+    '''
+    Remove everything about a virtualenv
+    '''
+    if args is None:
+        pg_venv = get_env_var('PG_VENV')
+    else:
+        # only one argument is allowed
+        if len(args) > 1:
+            raise TypeError
+
+        pg_venv = args[0]
+
+    if not virtualenv_exists(pg_venv):
+        log('This virtualenv does not exist.', 'error')
+        return
+
+    pg_venv_dir = get_pg_venv_dir(pg_venv)
+
+    # ask for a confirmation to remove the data
+    log(
+        'You are about to delete all the data for the {} pg_venv, located in {}. '
+        'Please type its name to confirm:'.format(
+            'specified' if args else 'current',
+            pg_venv_dir
+        ),
+        message_type='warning'
+    )
+    data_delete_confirmation = input()
+
+    if data_delete_confirmation != pg_venv:
+        log("The data won't be deleted.", message_type='error')
+    else:
+        if pg_is_running(pg_venv):
+            stop()
+        cmd = 'rm -r {}'.format(pg_venv_dir)
+        execute_cmd(cmd, 'Removing virtualenv {}'.format(pg_venv))
+
+
+def virtualenv_exists(pg_venv):
+    return os.path.isdir(get_pg_venv_dir(pg_venv))
 
 
 def execute_action(action, action_args):
@@ -485,11 +524,13 @@ def restart():
     start()
 
 
-def pg_is_running():
+def pg_is_running(pg_venv=None):
     '''
     Check if postgres is running
     '''
-    pg_venv = get_env_var('PG_VENV')
+    if not pg_venv:
+        pg_venv = get_env_var('PG_VENV')
+
     pg_ctl = os.path.join(get_pg_bin(pg_venv), 'pg_ctl')
 
     cmd = '{} status'.format(pg_ctl)
@@ -516,7 +557,7 @@ def rmdata(args=None):
 
     # ask for a confirmation to remove the data
     log(
-        'You are about to delete all the data for the {} pg_venv, located in {}. '
+        'You are about to delete all the data in your database, located in {}. '
         'Please type its name to confirm:'.format(
             'specified' if args else 'current',
             pg_data_dir
@@ -609,7 +650,6 @@ def workon(args=None):
     '''
     Print commands to set PG_VENV, PATH, PGDATA, LD_LIBRARY_PATH, PGPORT.
     The result of this command is made to be sourced by the shell.
-    Uses PG_INSTALL_DIR
 
     There is a default value for args even though the parameter is mandatory,
     because we want to exit gracefully (since the output of this function is
@@ -624,7 +664,6 @@ def workon(args=None):
         pg_venv = args[0]
 
         previous_pg_venv  = os.environ.get('PG_VENV', None)
-        pg_install_dir = get_env_var('PG_INSTALL_DIR')
 
         path = os.environ['PATH'].split(':')
         # remove previous version from PATH
@@ -685,6 +724,7 @@ ACTIONS = {
     'make_clean': make_clean,
     'rmdata': rmdata,
     'restart': restart,
+    'rm_virtualenv': rm_virtualenv,
     'start': start,
     'stop': stop,
     'workon': workon,
