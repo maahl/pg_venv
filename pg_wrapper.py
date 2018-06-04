@@ -145,6 +145,8 @@ def configure(additional_args=None, pg_venv=None, verbose=True, exit_on_fail=Fal
     Run `./configure` in pg_venv's copy of postgresql's source
 
     additional_args parameter allows to add more options to configure
+
+    Returns true if all commands run returned 0, false otherwise.
     '''
     if not pg_venv:
         pg_venv = get_env_var('PG_VENV')
@@ -162,12 +164,14 @@ def configure(additional_args=None, pg_venv=None, verbose=True, exit_on_fail=Fal
     additional_args = ' '.join(additional_args)
 
     cmd = 'cd {} && ./configure --quiet {} {}'.format(pg_src_dir, pg_configure_options, additional_args)
-    execute_cmd(cmd, 'Running configure script', verbose=verbose, exit_on_fail=exit_on_fail)
+    configure_return_code = execute_cmd(cmd, 'Running configure script', verbose=verbose, exit_on_fail=exit_on_fail)
 
     # display warning if necessary
     if warning_prefix_ignored:
         log('PG_CONFIGURE_OPTIONS contained option --prefix, but this has been '
             'ignored.', 'warning')
+
+    return configure_return_code == 0
 
 
 def create_virtualenv(args=None):

@@ -29,6 +29,8 @@ def tearDownModule():
 class CreateVirtualenv(unittest.TestCase):
     '''
     Test all the actions required to create a postgres virtualenv
+
+    Note that the tests must be run in order, as they depend on each other.
     '''
     def test_00_retrieve_postgres_source(self):
         return_code = retrieve_postgres_source(PG_VENV)
@@ -38,6 +40,12 @@ class CreateVirtualenv(unittest.TestCase):
 
         # check that at least 1 file is actually there
         self.assertTrue(os.path.isfile(os.path.join(get_pg_src(PG_VENV), 'README')))
+
+
+    def test_01_configure(self):
+        return_code = configure(pg_venv=PG_VENV)
+
+        self.assertTrue(return_code)
 
 
 if __name__ == '__main__':
