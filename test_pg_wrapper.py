@@ -33,9 +33,7 @@ class CreateVirtualenv(unittest.TestCase):
     def test_00_retrieve_postgres_source(self):
         retrieve_postgres_source(PG_VENV)
         # check that at least a file is actually there
-        print(get_pg_src(PG_VENV))
-        assert(os.path.isfile(os.path.join(get_pg_src(PG_VENV), 'README')))
-
+        self.assertTrue(os.path.isfile(os.path.join(get_pg_src(PG_VENV), 'README')))
 
 
 if __name__ == '__main__':
