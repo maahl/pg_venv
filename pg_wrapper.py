@@ -415,7 +415,6 @@ def retrieve_postgres_source(pg_venv=None):
     execute_cmd(cmd, "Copying PostgreSQL's source tree, commit {}".format(current_commit), exit_on_fail=True)
 
 
-
 def get_shell_function():
     '''
     Return the text for the function pg(), used as a wrapper around this
