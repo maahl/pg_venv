@@ -192,23 +192,30 @@ def create_virtualenv(args=None):
 
         pg_venv = args[0]
 
-    retrieve_postgres_source(pg_venv)
+    copy_return_code = retrieve_postgres_source(pg_venv)
 
-    configure(pg_venv=pg_venv, exit_on_fail=True)
-    make(make_args=['-j {}'.format(psutil.cpu_count())], pg_venv=pg_venv, exit_on_fail=True)
-    install(pg_venv=pg_venv, exit_on_fail=True)
+    configure_return_code = configure(pg_venv=pg_venv, exit_on_fail=True)
+    make_return_code = make(make_args=['-j {}'.format(psutil.cpu_count())], pg_venv=pg_venv, exit_on_fail=True)
+    install_return_code = install(pg_venv=pg_venv, exit_on_fail=True)
 
     pg_bin = get_pg_bin(pg_venv)
 
     cmd = os.path.join(pg_bin, 'initdb -D {}'.format(get_pg_data(pg_venv)))
-    execute_cmd(cmd, 'Initializing database', process_output=False, exit_on_fail=True)
+    initdb_return_code = execute_cmd(cmd, 'Initializing database', process_output=False, exit_on_fail=True)
 
-    start([pg_venv], exit_on_fail=True)
+    start_return_code = start([pg_venv], exit_on_fail=True)
 
     cmd = os.path.join(pg_bin, 'createdb -p {}'.format(get_pg_port(pg_venv)))
-    execute_cmd(cmd, 'Creating a database', exit_on_fail=True)
+    createdb_return_code = execute_cmd(cmd, 'Creating a database', exit_on_fail=True)
 
     log('pg_virtualenv {} created. Run `pg workon {}` to use it.'.format(pg_venv, pg_venv), 'success')
+
+    return copy_return_code \
+        and make_return_code \
+        and install_return_code \
+        and initdb_return_code == 0 \
+        and start_return_code \
+        and createdb_return_code == 0
 
 
 def rm_virtualenv(args=None):
@@ -652,7 +659,9 @@ def start(args=None, exit_on_fail=False):
         get_pg_log(pg_venv),
         get_pg_port(pg_venv)
     )
-    execute_cmd(cmd, 'Starting PostgreSQL', process_output=False, exit_on_fail=exit_on_fail)
+    start_return_code = execute_cmd(cmd, 'Starting PostgreSQL', process_output=False, exit_on_fail=exit_on_fail)
+
+    return start_return_code == 0
 
 
 def stop(args=None):

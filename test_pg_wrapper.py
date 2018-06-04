@@ -23,6 +23,7 @@ def tearDownModule():
     '''
     Remove test data
     '''
+    stop([PG_VENV])
     shutil.rmtree(TMP_DIR)
 
 
@@ -69,6 +70,14 @@ class CreateVirtualenv(unittest.TestCase):
         # check that at least 1 binary is available
         self.assertTrue(os.path.isfile(os.path.join(get_pg_bin(PG_VENV), 'pg_config')))
 
+    def test_05_create_virtualenv(self):
+        return_code = create_virtualenv([PG_VENV])
+
+        self.assertTrue(return_code)
+
 
 if __name__ == '__main__':
-    unittest.main(buffer=True)
+    # use -v or --verbose flag to get tested functions' output
+    verbose = '--verbose' in sys.argv or '-v' in sys.argv
+
+    unittest.main(buffer=not verbose)
