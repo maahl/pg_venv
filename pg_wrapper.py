@@ -142,10 +142,8 @@ def check():
 
 def configure(additional_args=None, pg_venv=None, verbose=True, exit_on_fail=False):
     '''
-    Run `./configure` in postgresql dir
+    Run `./configure` in pg_venv's copy of postgresql's source
 
-    Uses env var PG_DIR for location of postgresql source, and
-    PG_CONFIGURE_OPTIONS for options.
     additional_args parameter allows to add more options to configure
     '''
     if not pg_venv:
