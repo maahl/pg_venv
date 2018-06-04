@@ -31,8 +31,12 @@ class CreateVirtualenv(unittest.TestCase):
     Test all the actions required to create a postgres virtualenv
     '''
     def test_00_retrieve_postgres_source(self):
-        retrieve_postgres_source(PG_VENV)
-        # check that at least a file is actually there
+        return_code = retrieve_postgres_source(PG_VENV)
+
+        # check that the commands were ran successfully
+        self.assertTrue(return_code)
+
+        # check that at least 1 file is actually there
         self.assertTrue(os.path.isfile(os.path.join(get_pg_src(PG_VENV), 'README')))
 
 
