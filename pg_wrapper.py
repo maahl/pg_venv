@@ -11,7 +11,7 @@ USAGE = '''
 This is a wrapper script for various PostgreSQL common actions.
 
 Usage:
-    pg create_venv <pg_venv>
+    pg create_virtualenv <pg_venv>
     pg workon <pg_venv>
     pg <action> [args]
 
@@ -32,7 +32,7 @@ Actions:
 
         Uses environment variables PG_DIR, PG_CONFIGURE_OPTIONS, and PG_VENV.
 
-    create_venv:
+    create_virtualenv:
         Create a new pg_venv, by copying the postgres' source tree, compiling
         it, installing it, running initdb, starting the server and creating a
         db using createdb.
@@ -172,7 +172,7 @@ def configure(additional_args=None, pg_venv=None, verbose=True, exit_on_fail=Fal
             'ignored.', 'warning')
 
 
-def create_venv(args=None):
+def create_virtualenv(args=None):
     '''
     Create a new venv, by copying the source tree, configuring, compiling,
     installing, initializing the cluster, creating a db and starting the
@@ -208,12 +208,12 @@ def create_venv(args=None):
 
     pg_bin = get_pg_bin(pg_venv)
 
-    cmd = os.path.join(pg_bin, 'initdb')
+    cmd = os.path.join(pg_bin, 'initdb -D {}'.format(get_pg_data(pg_venv)))
     execute_cmd(cmd, 'Initializing database', process_output=False, exit_on_fail=True)
 
-    start(exit_on_fail=True)
+    start([pg_venv], exit_on_fail=True)
 
-    cmd = os.path.join(pg_bin, 'createdb')
+    cmd = os.path.join(pg_bin, 'createdb -p {}'.format(get_pg_port(pg_venv)))
     execute_cmd(cmd, 'Creating a database', exit_on_fail=True)
 
     log('pg_virtualenv {} created. Run `pg workon {}` to use it.'.format(pg_venv, pg_venv), 'success')
@@ -253,7 +253,7 @@ def rm_virtualenv(args=None):
         log("The data won't be deleted.", message_type='error')
     else:
         if pg_is_running(pg_venv):
-            stop()
+            stop([pg_venv])
         cmd = 'rm -r {}'.format(pg_venv_dir)
         execute_cmd(cmd, 'Removing virtualenv {}'.format(pg_venv))
 
@@ -392,6 +392,19 @@ def get_pg_log(pg_venv):
     Compute the path where a pg_venv's logs will be stored
     '''
     return os.path.join(get_pg_venv_dir(pg_venv), '{}.log'.format(pg_venv))
+
+
+def get_pg_port(pg_venv):
+    '''
+    Compute the port postgres will listen to, depending on its virtualenv name
+    '''
+    # convert the virtualenv name into an int
+    pg_port = int(''.join(format(ord(l), 'b') for l in pg_venv), base=2)
+
+    # make sure 1024 <= pg_port < 65535
+    pg_port = pg_port % (65535 - 1024) + 1024
+
+    return pg_port
 
 
 def get_shell_function():
@@ -533,7 +546,7 @@ def pg_is_running(pg_venv=None):
 
     pg_ctl = os.path.join(get_pg_bin(pg_venv), 'pg_ctl')
 
-    cmd = '{} status'.format(pg_ctl)
+    cmd = '{} status -D {}'.format(pg_ctl, get_pg_data(pg_venv))
     return_code = execute_cmd(cmd, verbose=False, process_output=False)
 
     return return_code == 0
@@ -569,7 +582,7 @@ def rmdata(args=None):
     if data_delete_confirmation != pg_venv:
         log("The data won't be deleted.", message_type='error')
     else:
-        if pg_is_running():
+        if pg_is_running(pg_venv):
             stop()
         cmd = 'rm -r {}/*'.format(pg_data_dir)
         execute_cmd(cmd, 'Removing all the data')
@@ -608,10 +621,11 @@ def start(args=None, exit_on_fail=False):
         pg_venv = args[0]
 
     # start postgresql
-    cmd = '{} start -D {} -l {} --core-files --wait'.format(
+    cmd = '{} start -D {} -l {} --core-files --wait -o "-p {}"'.format(
         os.path.join(get_pg_bin(pg_venv), 'pg_ctl'),
         get_pg_data(pg_venv),
-        get_pg_log(pg_venv)
+        get_pg_log(pg_venv),
+        get_pg_port(pg_venv)
     )
     execute_cmd(cmd, 'Starting PostgreSQL', process_output=False, exit_on_fail=exit_on_fail)
 
@@ -663,6 +677,10 @@ def workon(args=None):
             raise TypeError("Too many arguments. See 'pg help' for details")
         pg_venv = args[0]
 
+        # raise an exception if the desired virtualenv does not exist
+        if not virtualenv_exists(pg_venv):
+            raise Exception('pg virtualenv {} does not exist. Use `pg create_virtualenv {}` to create it.'.format(pg_venv, pg_venv))
+
         previous_pg_venv  = os.environ.get('PG_VENV', None)
 
         path = os.environ['PATH'].split(':')
@@ -690,7 +708,7 @@ def workon(args=None):
         # set PGPORT variable
         # port is determined from the venv name, 1024 <= port <= 65535
         # collisions are possible and not handled
-        pg_port = int(''.join(format(ord(l), 'b') for l in pg_venv), base=2) % (65535 - 1024) + 1024
+        pg_port = get_pg_port(pg_venv)
         output += 'export PGPORT={}\n'.format(pg_port)
 
         # update PS1 variable to display current pg_venv and PGPORT, and remove
@@ -715,7 +733,7 @@ def workon(args=None):
 ACTIONS = {
     'check': check,
     'configure': configure,
-    'create_venv': create_venv,
+    'create_virtualenv': create_virtualenv,
     'get_shell_function': get_shell_function,
     'help': usage,
     'install': install,

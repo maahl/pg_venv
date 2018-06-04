@@ -55,7 +55,7 @@ Example usage:
 # create a pg_venv
 # this will copy postgres' source, compile it, install it, start it and create a
 # db
-pg create_venv awesomefeature
+pg create_virtualenv awesomefeature
 
 # enter a pg_venv
 # this will set several env variables derived from the name of the venv, e.g.
