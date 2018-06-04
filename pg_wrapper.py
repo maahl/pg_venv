@@ -475,12 +475,16 @@ def get_shell_function():
 def install(pg_venv=None, verbose=True, exit_on_fail=False):
     '''
     Run make install in postgresql source dir
+
+    Returns true if all commands run returned 0, false otherwise.
     '''
     if not pg_venv:
         pg_venv = get_env_var('PG_VENV')
     pg_src_dir = get_pg_src(pg_venv)
     cmd = 'cd {} && make -s install && cd contrib && make -s install'.format(pg_src_dir)
-    execute_cmd(cmd, 'Installing PostgreSQL', verbose, process_output=False, exit_on_fail=exit_on_fail)
+    install_return_code = execute_cmd(cmd, 'Installing PostgreSQL', verbose, process_output=False, exit_on_fail=exit_on_fail)
+
+    return install_return_code == 0
 
 
 def colorize(message, message_type='log'):

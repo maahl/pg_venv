@@ -57,8 +57,17 @@ class CreateVirtualenv(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(get_pg_src(PG_VENV), 'src', 'bin', 'pg_config', 'pg_config')))
 
 
-    def test_make_check(self):
+    def test_03_make_check(self):
         return_code = make_check(PG_VENV)
+
+
+    def test_04_install(self):
+        return_code = install(PG_VENV)
+
+        self.assertTrue(return_code)
+
+        # check that at least 1 binary is available
+        self.assertTrue(os.path.isfile(os.path.join(get_pg_bin(PG_VENV), 'pg_config')))
 
 
 if __name__ == '__main__':
