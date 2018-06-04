@@ -26,7 +26,7 @@ case "$state" in
             "mc:alias for 'make_clean'"
             "make_clean:run make clean in source dir"
             "restart:stops and starts the server"
-            "rmdata:remove the data of a postgresql instance"
+            "rm_data:remove the data of a postgresql instance"
             "rm_virtualenv:remove a virtualenv"
             "start:start a postgresql instance"
             "stop:stop a postgresql instance"

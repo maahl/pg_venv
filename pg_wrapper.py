@@ -75,7 +75,7 @@ Actions:
     restart:
         Similar to running `pg stop && pg start`
 
-    rmdata:
+    rm_data:
         Removes the data directory for the current pg
 
     start:
@@ -198,14 +198,11 @@ def create_virtualenv(args=None):
     make_return_code = make(make_args=['-j {}'.format(psutil.cpu_count())], pg_venv=pg_venv, exit_on_fail=True)
     install_return_code = install(pg_venv=pg_venv, exit_on_fail=True)
 
-    pg_bin = get_pg_bin(pg_venv)
-
-    cmd = os.path.join(pg_bin, 'initdb -D {}'.format(get_pg_data(pg_venv)))
-    initdb_return_code = execute_cmd(cmd, 'Initializing database', process_output=False, exit_on_fail=True)
+    initdb_return_code = initdb(pg_venv, exit_on_fail=True)
 
     start_return_code = start([pg_venv], exit_on_fail=True)
 
-    cmd = os.path.join(pg_bin, 'createdb -p {}'.format(get_pg_port(pg_venv)))
+    cmd = os.path.join(get_pg_bin(pg_venv), 'createdb -p {}'.format(get_pg_port(pg_venv)))
     createdb_return_code = execute_cmd(cmd, 'Creating a database', exit_on_fail=True)
 
     log('pg_virtualenv {} created. Run `pg workon {}` to use it.'.format(pg_venv, pg_venv), 'success')
@@ -213,7 +210,7 @@ def create_virtualenv(args=None):
     return copy_return_code \
         and make_return_code \
         and install_return_code \
-        and initdb_return_code == 0 \
+        and initdb_return_code \
         and start_return_code \
         and createdb_return_code == 0
 
@@ -479,6 +476,21 @@ def get_shell_function():
     print(output)
 
 
+def initdb(pg_venv=None, exit_on_fail=False):
+    '''
+    Run initdb
+    '''
+    if not pg_venv:
+        pg_venv = get_env_var('PG_VENV')
+
+    pg_bin = get_pg_bin(pg_venv)
+
+    cmd = os.path.join(pg_bin, 'initdb -D {}'.format(get_pg_data(pg_venv)))
+    initdb_return_code = execute_cmd(cmd, 'Initializing database', process_output=False, exit_on_fail=exit_on_fail)
+
+    return initdb_return_code == 0
+
+
 def install(pg_venv=None, verbose=True, exit_on_fail=False):
     '''
     Run make install in postgresql source dir
@@ -584,7 +596,7 @@ def pg_is_running(pg_venv=None):
     return return_code == 0
 
 
-def rmdata(args=None):
+def rm_data(args=None):
     '''
     Removes the data directory for the specified pg_venv.
     If a pg_venv is not provided, remove the data directory for the current one.
@@ -613,11 +625,14 @@ def rmdata(args=None):
 
     if data_delete_confirmation != pg_venv:
         log("The data won't be deleted.", message_type='error')
+        return False
     else:
         if pg_is_running(pg_venv):
             stop()
         cmd = 'rm -r {}/*'.format(pg_data_dir)
-        execute_cmd(cmd, 'Removing all the data')
+        rm_return_code = execute_cmd(cmd, 'Removing all the data')
+
+        return rm_return_code == 0
 
 
 def server_log(args=None):
@@ -687,7 +702,9 @@ def stop(args=None):
         cmd = '{} stop -D {}'.format(pg_ctl, pg_data_dir)
 
     # stop postgresql
-    execute_cmd(cmd, 'Stopping PostgreSQL', process_output=False)
+    stop_return_code = execute_cmd(cmd, 'Stopping PostgreSQL', process_output=False)
+
+    return stop_return_code == 0
 
 
 def usage():
@@ -774,7 +791,7 @@ ACTIONS = {
     'log': server_log,
     'make': make,
     'make_clean': make_clean,
-    'rmdata': rmdata,
+    'rm_data': rm_data,
     'restart': restart,
     'rm_virtualenv': rm_virtualenv,
     'start': start,

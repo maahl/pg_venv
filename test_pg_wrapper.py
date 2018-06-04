@@ -3,6 +3,7 @@
 import os
 import shutil
 import unittest
+from unittest.mock import patch
 from pg_wrapper import *
 
 
@@ -70,7 +71,40 @@ class CreateVirtualenv(unittest.TestCase):
         # check that at least 1 binary is available
         self.assertTrue(os.path.isfile(os.path.join(get_pg_bin(PG_VENV), 'pg_config')))
 
-    def test_05_create_virtualenv(self):
+
+    def test_05_initdb(self):
+        return_code = initdb(PG_VENV)
+
+        self.assertTrue(return_code)
+
+        # check that the data directory exists and contains at least 1 file
+        self.assertTrue(os.path.isfile(os.path.join(get_pg_data(PG_VENV), 'postgresql.conf')))
+
+
+    def test_06_start(self):
+        return_code = start([PG_VENV])
+
+        self.assertTrue(return_code)
+        self.assertTrue(pg_is_running(PG_VENV))
+
+
+    def test_07_stop(self):
+        return_code = stop([PG_VENV])
+
+        self.assertTrue(return_code)
+        self.assertFalse(pg_is_running(PG_VENV))
+
+
+    @patch('builtins.input', return_value=PG_VENV)
+    def test_08_rm_data(self, input_function):
+        with patch('builtins.input', return_value=PG_VENV) as input:
+            return_code = rm_data([PG_VENV])
+
+        self.assertTrue(return_code)
+        self.assertEquals(len(os.listdir(get_pg_data(PG_VENV))), 0)
+
+
+    def test_09_create_virtualenv(self):
         return_code = create_virtualenv([PG_VENV])
 
         self.assertTrue(return_code)
