@@ -10,8 +10,7 @@ _arguments -C \
 case "$state" in
     (actions)
         local actions; actions=(
-            "ck:alias for 'check'"
-            "check:run make check in postgresql source dir"
+            "make_check:run make check in postgresql source dir"
             "c:alias for 'configure'"
             "configure:run ./configure in source dir"
             "create_virtualenv: create a new virtualenv"

@@ -57,5 +57,9 @@ class CreateVirtualenv(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(get_pg_src(PG_VENV), 'src', 'bin', 'pg_config', 'pg_config')))
 
 
+    def test_make_check(self):
+        return_code = make_check(PG_VENV)
+
+
 if __name__ == '__main__':
     unittest.main(buffer=True)

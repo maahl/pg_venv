@@ -16,10 +16,6 @@ Usage:
     pg <action> [args]
 
 Actions:
-    check, ck:
-        Run `make check` in postgresql source dir.
-        Uses environment variable PG_DIR
-
     configure, c:
         pg configure [<additional_args>]
 
@@ -66,6 +62,10 @@ Actions:
         <make_args>: arguments that are passed to make (e.g. '-sj 4')
 
         Run `make` in postgresql source dir
+        Uses environment variable PG_DIR
+
+    make_check:
+        Run `make check` in postgresql source dir.
         Uses environment variable PG_DIR
 
     make_clean, mc:
@@ -128,16 +128,19 @@ Environment variables:
 '''
 
 
-def check():
+def make_check(pg_venv=None):
     '''
-    Run make check in the postgresql source dir
+    Run make check in postgresql's source
 
-    Uses env var PG_DIR
+    Returns true if all commands run returned 0, false otherwise.
     '''
-    pg_venv = get_env_var('PG_VENV')
+    if not pg_venv:
+        pg_venv = get_env_var('PG_VENV')
     pg_src_dir = get_pg_src(pg_venv)
     cmd = 'cd {} && make -s check'.format(pg_src_dir)
-    execute_cmd(cmd, 'Running make check', process_output=False)
+    make_check_return_code = execute_cmd(cmd, 'Running make check', process_output=False)
+
+    return make_check_return_code == 0
 
 
 def configure(additional_args=None, pg_venv=None, verbose=True, exit_on_fail=False):
@@ -749,7 +752,7 @@ def workon(args=None):
 
 
 ACTIONS = {
-    'check': check,
+    'make_check': make_check,
     'configure': configure,
     'create_virtualenv': create_virtualenv,
     'get_shell_function': get_shell_function,
@@ -768,7 +771,6 @@ ACTIONS = {
 
 ALIASES = {
     'c': 'configure',
-    'ck': 'check',
     'h': 'help',
     'i': 'install',
     'l': 'log',
