@@ -187,20 +187,7 @@ def create_virtualenv(args=None):
 
         pg_venv = args[0]
 
-    pg_dir = get_env_var('PG_DIR')
-
-    # create the necessary directories
-    cmd = 'mkdir -p "{}"'.format(
-        get_pg_src(pg_venv),
-    )
-    execute_cmd(cmd, 'Creating directories', exit_on_fail=True)
-
-    # copy the source tree
-    current_commit = subprocess.check_output('cd {} && git describe --tags'.format(pg_dir), shell=True).strip().decode('utf-8')
-
-    cmd = 'cd {} && git archive --format=tar HEAD | (cd {} && tar xf -)'.format(pg_dir, get_pg_src(pg_venv))
-    execute_cmd(cmd, "Copying PostgreSQL's source tree, commit {}".format(current_commit), exit_on_fail=True)
-
+    retrieve_postgres_source(pg_venv)
 
     configure(pg_venv=pg_venv, exit_on_fail=True)
     make(make_args=['-j {}'.format(psutil.cpu_count())], pg_venv=pg_venv, exit_on_fail=True)
@@ -405,6 +392,27 @@ def get_pg_port(pg_venv):
     pg_port = pg_port % (65535 - 1024) + 1024
 
     return pg_port
+
+
+def retrieve_postgres_source(pg_venv=None):
+    '''
+    Copy the source code of postgres (location described in an env var) into
+    the src dir of the pg_venv
+    '''
+    if pg_venv is None:
+        pg_venv = get_env_var('PG_VENV')
+
+    pg_dir = get_env_var('PG_DIR')
+
+    # create the necessary directories
+    cmd = 'mkdir -p "{}"'.format(get_pg_src(pg_venv))
+    execute_cmd(cmd, 'Creating directories', exit_on_fail=True)
+
+    # copy the source tree
+    current_commit = subprocess.check_output('cd {} && git describe --tags'.format(pg_dir), shell=True).strip().decode('utf-8')
+    cmd = 'cd {} && git archive --format=tar HEAD | (cd {} && tar xf -)'.format(pg_dir, get_pg_src(pg_venv))
+    execute_cmd(cmd, "Copying PostgreSQL's source tree, commit {}".format(current_commit), exit_on_fail=True)
+
 
 
 def get_shell_function():
