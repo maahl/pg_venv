@@ -516,6 +516,8 @@ def make(make_args=None, pg_venv=None, verbose=True, exit_on_fail=False):
 
     Uses env var PG_DIR
     <make_args> options that are passed to make
+
+    Returns true if all commands run returned 0, false otherwise.
     '''
     if not pg_venv:
         pg_venv = get_env_var('PG_VENV')
@@ -527,7 +529,9 @@ def make(make_args=None, pg_venv=None, verbose=True, exit_on_fail=False):
     make_args = ' '.join(make_args)
 
     cmd = 'cd {} && make -s {} && cd contrib && make -s {}'.format(pg_src_dir, make_args, make_args)
-    execute_cmd(cmd, 'Compiling PostgreSQL', verbose, exit_on_fail=exit_on_fail, process_output=False)
+    make_return_code = execute_cmd(cmd, 'Compiling PostgreSQL', verbose, exit_on_fail=exit_on_fail, process_output=False)
+
+    return make_return_code == 0
 
 
 def make_clean():

@@ -48,5 +48,14 @@ class CreateVirtualenv(unittest.TestCase):
         self.assertTrue(return_code)
 
 
+    def test_02_make(self):
+        return_code = make(make_args=['-j {}'.format(psutil.cpu_count())], pg_venv=PG_VENV)
+
+        self.assertTrue(return_code)
+
+        # check that at least 1 binary was generated
+        self.assertTrue(os.path.isfile(os.path.join(get_pg_src(PG_VENV), 'src', 'bin', 'pg_config', 'pg_config')))
+
+
 if __name__ == '__main__':
     unittest.main(buffer=True)
