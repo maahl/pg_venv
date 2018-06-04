@@ -14,7 +14,7 @@ case "$state" in
             "check:run make check in postgresql source dir"
             "c:alias for 'configure'"
             "configure:run ./configure in source dir"
-            "create_venv: create a new virtualenv"
+            "create_virtualenv: create a new virtualenv"
             "get_shell_function:output the wrapper function"
             "h:alias for 'help'"
             "help:display the help text"
