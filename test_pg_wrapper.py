@@ -107,6 +107,15 @@ class CreateVirtualenv(unittest.TestCase):
         return_code = create_virtualenv([PG_VENV])
 
         self.assertTrue(return_code)
+        self.assertTrue(pg_is_running(PG_VENV))
+
+
+    def test_10_rm_virtualenv(self):
+        with patch('builtins.input', return_value=PG_VENV) as input:
+            return_code = rm_virtualenv([PG_VENV])
+
+        self.assertTrue(return_code)
+        self.assertFalse(os.path.isdir(get_pg_venv_dir(PG_VENV)))
 
 
 if __name__ == '__main__':

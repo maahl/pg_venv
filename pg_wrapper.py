@@ -247,11 +247,13 @@ def rm_virtualenv(args=None):
 
     if data_delete_confirmation != pg_venv:
         log("The data won't be deleted.", message_type='error')
+        return False
     else:
         if pg_is_running(pg_venv):
             stop([pg_venv])
         cmd = 'rm -r {}'.format(pg_venv_dir)
-        execute_cmd(cmd, 'Removing virtualenv {}'.format(pg_venv))
+        rm_return_code = execute_cmd(cmd, 'Removing virtualenv {}'.format(pg_venv))
+        return rm_return_code == 0
 
 
 def virtualenv_exists(pg_venv):
