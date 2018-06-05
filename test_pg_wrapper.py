@@ -28,7 +28,7 @@ def tearDownModule():
     shutil.rmtree(TMP_DIR)
 
 
-class CreateVirtualenv(unittest.TestCase):
+class CreateVirtualenvTestCase(unittest.TestCase):
     '''
     Test all the actions required to create a postgres virtualenv
 
@@ -122,4 +122,10 @@ if __name__ == '__main__':
     # use -v or --verbose flag to get tested functions' output
     verbose = '--verbose' in sys.argv or '-v' in sys.argv
 
-    unittest.main(buffer=not verbose)
+    runner = unittest.TextTestRunner(buffer=not verbose)
+    # run expensive tests only if --all is in the arguments
+    if '--all' in sys.argv:
+        create_virtualenv_test_suite = unittest.TestSuite()
+        create_virtualenv_test_suite.addTest(unittest.makeSuite(CreateVirtualenvTestCase))
+
+        runner.run(create_virtualenv_test_suite)
