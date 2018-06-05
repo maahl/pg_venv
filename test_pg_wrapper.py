@@ -95,8 +95,7 @@ class CreateVirtualenv(unittest.TestCase):
         self.assertFalse(pg_is_running(PG_VENV))
 
 
-    @patch('builtins.input', return_value=PG_VENV)
-    def test_08_rm_data(self, input_function):
+    def test_08_rm_data(self):
         with patch('builtins.input', return_value=PG_VENV) as input:
             return_code = rm_data([PG_VENV])
 
