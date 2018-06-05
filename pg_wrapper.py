@@ -250,10 +250,13 @@ def rm_virtualenv(args=None):
         return False
     else:
         if pg_is_running(pg_venv):
-            stop([pg_venv])
+            stop_return_code = stop([pg_venv])
+        else:
+            stop_return_code = True
+
         cmd = 'rm -r {}'.format(pg_venv_dir)
         rm_return_code = execute_cmd(cmd, 'Removing virtualenv {}'.format(pg_venv))
-        return rm_return_code == 0
+        return stop_return_code and rm_return_code == 0
 
 
 def virtualenv_exists(pg_venv):
@@ -592,10 +595,14 @@ def pg_is_running(pg_venv=None):
 
     pg_ctl = os.path.join(get_pg_bin(pg_venv), 'pg_ctl')
 
-    cmd = '{} status -D {}'.format(pg_ctl, get_pg_data(pg_venv))
-    return_code = execute_cmd(cmd, verbose=False, process_output=False)
+    if os.path.isfile(pg_ctl):
+        cmd = '{} status -D {}'.format(pg_ctl, get_pg_data(pg_venv))
+        return_code = execute_cmd(cmd, verbose=False, process_output=False)
 
-    return return_code == 0
+        return return_code == 0
+    else:
+        # binary does not exist so postgres likely isn't running
+        return False
 
 
 def rm_data(args=None):
