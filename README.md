@@ -63,11 +63,7 @@ pg create_virtualenv awesomefeature
 pg workon awesomefeature
 
 # recompile postgres
-# note: when switching venv, we do not checkout appropriate branches in the
-# postgresql git repository, no magic at all here: it would involve too much
-# guessing. So make sure you are using the appropriate branch before compiling!
-#
-# note bis: the following actions do nothing but call the underlying programs
+# note: the following actions do nothing but call the underlying programs
 # (configure and make); they are here merely because they allow to compile
 # postgres without moving to its source tree.
 pg configure
