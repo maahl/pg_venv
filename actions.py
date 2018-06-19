@@ -1,4 +1,4 @@
-import psutil
+import multiprocessing
 import sys
 
 from utils import *
@@ -72,7 +72,7 @@ def create_virtualenv(pg_venv):
     copy_return_code = retrieve_postgres_source(pg_venv)
 
     configure_return_code = configure(pg_venv=pg_venv, exit_on_fail=True)
-    make_return_code = make(additional_args=['-j {}'.format(psutil.cpu_count())], pg_venv=pg_venv, exit_on_fail=True)
+    make_return_code = make(additional_args=['-j {}'.format(multiprocessing.cpu_count())], pg_venv=pg_venv, exit_on_fail=True)
     install_return_code = install(pg_venv=pg_venv, exit_on_fail=True)
 
     initdb_return_code = initdb(pg_venv, exit_on_fail=True)

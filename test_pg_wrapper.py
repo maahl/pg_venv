@@ -61,7 +61,7 @@ class CreateVirtualenvTestCase(unittest.TestCase):
 
 
     def test_02_make(self):
-        return_code = make(additional_args=['-j {}'.format(psutil.cpu_count())], pg_venv=TMP_PG_VENV)
+        return_code = make(additional_args=['-j {}'.format(multiprocessing.cpu_count())], pg_venv=TMP_PG_VENV)
 
         self.assertTrue(return_code)
 
