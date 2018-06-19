@@ -4,7 +4,10 @@ import os
 import shutil
 import unittest
 from unittest.mock import patch
+
+from actions import *
 from pg_wrapper import *
+from utils import *
 
 
 TMP_DIR = os.path.abspath('.test_data')
@@ -37,7 +40,7 @@ class CreateVirtualenvTestCase(unittest.TestCase):
         Remove test data
         '''
         if pg_is_running(TMP_PG_VENV):
-            stop([TMP_PG_VENV])
+            stop(TMP_PG_VENV)
         shutil.rmtree(TMP_DIR)
 
 
@@ -58,7 +61,7 @@ class CreateVirtualenvTestCase(unittest.TestCase):
 
 
     def test_02_make(self):
-        return_code = make(make_args=['-j {}'.format(psutil.cpu_count())], pg_venv=TMP_PG_VENV)
+        return_code = make(additional_args=['-j {}'.format(psutil.cpu_count())], pg_venv=TMP_PG_VENV)
 
         self.assertTrue(return_code)
 
@@ -89,14 +92,14 @@ class CreateVirtualenvTestCase(unittest.TestCase):
 
 
     def test_06_start(self):
-        return_code = start([TMP_PG_VENV])
+        return_code = start(TMP_PG_VENV)
 
         self.assertTrue(return_code)
         self.assertTrue(pg_is_running(TMP_PG_VENV))
 
 
     def test_07_stop(self):
-        return_code = stop([TMP_PG_VENV])
+        return_code = stop(TMP_PG_VENV)
 
         self.assertTrue(return_code)
         self.assertFalse(pg_is_running(TMP_PG_VENV))
@@ -104,14 +107,14 @@ class CreateVirtualenvTestCase(unittest.TestCase):
 
     def test_08_rm_data(self):
         with patch('builtins.input', return_value=TMP_PG_VENV) as input:
-            return_code = rm_data([TMP_PG_VENV])
+            return_code = rm_data(TMP_PG_VENV)
 
         self.assertTrue(return_code)
         self.assertEquals(len(os.listdir(get_pg_data(TMP_PG_VENV))), 0)
 
 
     def test_09_create_virtualenv(self):
-        return_code = create_virtualenv([TMP_PG_VENV])
+        return_code = create_virtualenv(TMP_PG_VENV)
 
         self.assertTrue(return_code)
         self.assertTrue(pg_is_running(TMP_PG_VENV))
@@ -119,7 +122,7 @@ class CreateVirtualenvTestCase(unittest.TestCase):
 
     def test_10_rm_virtualenv(self):
         with patch('builtins.input', return_value=TMP_PG_VENV) as input:
-            return_code = rm_virtualenv([TMP_PG_VENV])
+            return_code = rm_virtualenv(TMP_PG_VENV)
 
         self.assertTrue(return_code)
         self.assertFalse(os.path.isdir(get_pg_venv_dir(TMP_PG_VENV)))
@@ -129,13 +132,13 @@ class ActionsTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         os.environ['PG_VIRTUALENV_HOME'] = TMP_DIR
-        start([PERSISTENT_PG_VENV])
-        start([PERSISTENT_PG_VENV_2])
+        start(PERSISTENT_PG_VENV)
+        start(PERSISTENT_PG_VENV_2)
 
     @classmethod
     def tearDownClass(cls):
-        stop([PERSISTENT_PG_VENV])
-        stop([PERSISTENT_PG_VENV_2])
+        stop(PERSISTENT_PG_VENV)
+        stop(PERSISTENT_PG_VENV_2)
 
 
 if __name__ == '__main__':
@@ -159,8 +162,8 @@ if __name__ == '__main__':
         and os.path.isdir(get_pg_data(PERSISTENT_PG_VENV_2))
 
     if not test_virtualenvs_are_present:
-        create_virtualenv([PERSISTENT_PG_VENV])
-        stop([PERSISTENT_PG_VENV])
+        create_virtualenv(PERSISTENT_PG_VENV)
+        stop(PERSISTENT_PG_VENV)
 
         # copy the first one into the second one to save time
         cmd = 'cp -r {} {}'.format(get_pg_venv_dir(PERSISTENT_PG_VENV), get_pg_venv_dir(PERSISTENT_PG_VENV_2))

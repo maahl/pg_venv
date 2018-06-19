@@ -10,20 +10,14 @@ _arguments -C \
 case "$state" in
     (actions)
         local actions; actions=(
-            "make_check:run make check in postgresql source dir"
-            "c:alias for 'configure'"
             "configure:run ./configure in source dir"
             "create_virtualenv: create a new virtualenv"
             "get_shell_function:output the wrapper function"
-            "h:alias for 'help'"
-            "help:display the help text"
-            "i:alias for 'install'"
             "install:run make install in source dir"
             "l:alias for 'log'"
             "log:display server log"
-            "m:alias for 'make'"
             "make:run make in source dir"
-            "mc:alias for 'make_clean'"
+            "make_check:run make check in postgresql source dir"
             "make_clean:run make clean in source dir"
             "restart:stops and starts the server"
             "rm_data:remove the data of a postgresql instance"
@@ -38,7 +32,7 @@ case "$state" in
     ;;
     (args)
         case "$line[1]" in
-            (l|log|start|stop|w|workon)
+            (l|log|rm_virtualenv|start|stop|w|workon)
                 _values 'pg versions' "${(uonzf)$(ls $PG_VIRTUALENV_HOME | cut -d '-' -f 2)}"
             ;;
         esac

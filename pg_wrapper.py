@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
+import argparse
 import os
-import psutil
-import subprocess
 import sys
 
+from actions import ACTIONS
+from utils import get_env_var
 
-LOG_PREFIX = 'pg: '
+
 USAGE = '''
 This is a wrapper script for various PostgreSQL common actions.
 
@@ -16,7 +17,7 @@ Usage:
     pg <action> [args]
 
 Actions:
-    configure, c:
+    configure:
         pg configure [<additional_args>]
 
         <additional_args>: additional options passed to the configure script
@@ -44,7 +45,7 @@ Actions:
     help, h:
         Display this help text
 
-    install, i:
+    install:
         Run `make install` in postgresql source dir
 
         Uses environment variable PG_DIR
@@ -56,7 +57,7 @@ Actions:
 
         Show the server log, using `tail -f`.
 
-    make, m:
+    make:
         pg make [<make_args>]
 
         <make_args>: arguments that are passed to make (e.g. '-sj 4')
@@ -68,7 +69,7 @@ Actions:
         Run `make check` in postgresql source dir.
         Uses environment variable PG_DIR
 
-    make_clean, mc:
+    make_clean:
         Run `make clean` in postgresql source dir
         Uses environment variable PG_DIR
 
@@ -128,703 +129,79 @@ Environment variables:
 '''
 
 
-def make_check(pg_venv=None):
-    '''
-    Run make check in postgresql's source
-
-    Returns true if all commands run returned 0, false otherwise.
-    '''
-    if not pg_venv:
-        pg_venv = get_env_var('PG_VENV')
-    pg_src_dir = get_pg_src(pg_venv)
-    cmd = 'cd {} && make -s check'.format(pg_src_dir)
-    make_check_return_code = execute_cmd(cmd, 'Running make check', process_output=False)
-
-    return make_check_return_code == 0
-
-
-def configure(additional_args=None, pg_venv=None, verbose=True, exit_on_fail=False):
-    '''
-    Run `./configure` in pg_venv's copy of postgresql's source
-
-    additional_args parameter allows to add more options to configure
-
-    Returns true if all commands run returned 0, false otherwise.
-    '''
-    if not pg_venv:
-        pg_venv = get_env_var('PG_VENV')
-    pg_src_dir = get_pg_src(pg_venv)
-    pg_configure_options = os.environ.get('PG_CONFIGURE_OPTIONS', '')
-
-    # if prefix is set in PG_CONFIGURE_OPTIONS, ignore it and display a warning
-    warning_prefix_ignored = '--prefix' in pg_configure_options
-
-    pg_configure_options += ' --prefix {}'.format(get_pg_venv_dir(pg_venv))
-
-    if additional_args is None:
-        additional_args = []
-    # convert additional_args list to a string
-    additional_args = ' '.join(additional_args)
-
-    cmd = 'cd {} && ./configure --quiet {} {}'.format(pg_src_dir, pg_configure_options, additional_args)
-    configure_return_code = execute_cmd(cmd, 'Running configure script', verbose=verbose, exit_on_fail=exit_on_fail)
-
-    # display warning if necessary
-    if warning_prefix_ignored:
-        log('PG_CONFIGURE_OPTIONS contained option --prefix, but this has been '
-            'ignored.', 'warning')
-
-    return configure_return_code == 0
-
-
-def create_virtualenv(args=None):
-    '''
-    Create a new venv, by copying the source tree, configuring, compiling,
-    installing, initializing the cluster, creating a db and starting the
-    server.
-    '''
-    if args is None:
-        pg_venv = get_env_var('PG_VENV')
-    else:
-        # only one argument is allowed
-        if len(args) > 1:
-            raise TypeError
-
-        pg_venv = args[0]
-
-    copy_return_code = retrieve_postgres_source(pg_venv)
-
-    configure_return_code = configure(pg_venv=pg_venv, exit_on_fail=True)
-    make_return_code = make(make_args=['-j {}'.format(psutil.cpu_count())], pg_venv=pg_venv, exit_on_fail=True)
-    install_return_code = install(pg_venv=pg_venv, exit_on_fail=True)
-
-    initdb_return_code = initdb(pg_venv, exit_on_fail=True)
-
-    start_return_code = start([pg_venv], exit_on_fail=True)
-
-    cmd = os.path.join(get_pg_bin(pg_venv), 'createdb -p {}'.format(get_pg_port(pg_venv)))
-    createdb_return_code = execute_cmd(cmd, 'Creating a database', exit_on_fail=True)
-
-    log('pg_virtualenv {} created. Run `pg workon {}` to use it.'.format(pg_venv, pg_venv), 'success')
-
-    return copy_return_code \
-        and make_return_code \
-        and install_return_code \
-        and initdb_return_code \
-        and start_return_code \
-        and createdb_return_code == 0
-
-
-def rm_virtualenv(args=None):
-    '''
-    Remove everything about a virtualenv
-    '''
-    if args is None:
-        pg_venv = get_env_var('PG_VENV')
-    else:
-        # only one argument is allowed
-        if len(args) > 1:
-            raise TypeError
-
-        pg_venv = args[0]
-
-    if not virtualenv_exists(pg_venv):
-        log('This virtualenv does not exist.', 'error')
-        return
-
-    pg_venv_dir = get_pg_venv_dir(pg_venv)
-
-    # ask for a confirmation to remove the data
-    log(
-        'You are about to delete all the data for the {} pg_venv, located in {}. '
-        'Please type its name to confirm:'.format(
-            'specified' if args else 'current',
-            pg_venv_dir
-        ),
-        message_type='warning'
-    )
-    data_delete_confirmation = input()
-
-    if data_delete_confirmation != pg_venv:
-        log("The data won't be deleted.", message_type='error')
-        return False
-    else:
-        if pg_is_running(pg_venv):
-            stop_return_code = stop([pg_venv])
-        else:
-            stop_return_code = True
-
-        cmd = 'rm -r {}'.format(pg_venv_dir)
-        rm_return_code = execute_cmd(cmd, 'Removing virtualenv {}'.format(pg_venv))
-        return stop_return_code and rm_return_code == 0
-
-
-def virtualenv_exists(pg_venv):
-    return os.path.isdir(get_pg_venv_dir(pg_venv))
-
-
 def execute_action(action, action_args):
     '''
     Execute the function corresponding to an action
     This action can also be an alias
     '''
-    # if action is an existing action name, execute the corresponding function
-    if action in ACTIONS.keys():
-        if action_args:
-            try:
-                ACTIONS[action](action_args)
-            except TypeError as e:
-                log('some arguments were not understood', 'error')
-                log('error message: {}'.format(e))
-                exit(2)
-        else:
-            ACTIONS[action]()
-
-    # if action is an existing alias, then execute the function corresponding to
-    # the action
-    elif action in ALIASES.keys():
-        action = ALIASES[action]
-        execute_action(action, action_args)
-
-    # if action isn't recognized, display help and exit
-    else:
-        log('unrecognized action {}'.format(action), 'error')
-        usage()
-        exit(-1)
-
-
-def execute_cmd(cmd, cmd_description='', verbose=True, verbose_cmd=False, exit_on_fail=False, process_output=True):
-    '''
-    Execute a shell command, binding stdin and stdout to this process' stdin
-    and stdout.
-    The cmd_description will be displayed, along with OK or failed depending
-    on the return code of the process, if verbose is True.
-    The command to be executed will be printed if verbose_cmd is True.
-    The process' output will be displayed if process_output is True, or if the
-    process returns a non-zero code.
-    '''
-    if verbose_cmd:
-        log('executing `{}`'.format(cmd))
-
-    if verbose:
-        log(cmd_description + '... ', end='')
-
-    if not process_output:
-        process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    else:
-        process = subprocess.Popen(cmd, shell=True)
-    out, err = process.communicate()
-
-    # display the process output if it returned non-zero, even if process output
-    # is disabled.
-    if process.returncode != 0 and process_output == False:
-        print() # new line
-        print(err.decode('utf-8'))
-
-    if verbose:
-        if process.returncode == 0:
-            log('OK', 'success', prefix=False)
-        else:
-            log('failed', 'error')
-            log('command used: {}'.format(cmd), 'error', prefix=False)
-
-    if exit_on_fail and process.returncode != 0:
-        exit(-1)
-
-    return process.returncode
-
-
-def get_env_var(env_var):
-    '''
-    Return the value of an environment variable
-    '''
     try:
-        return os.environ[env_var]
-    except KeyError:
-        # handle PG_VENV differently, as it mustn't be set by the user directly
-        if env_var == 'PG_VENV':
-            log('PG_VENV not set. Please run `pg workon <pg_venv>` first', 'error')
-
-        else:
-            log('Please set environment variable {}. See help for '
-                'detail (pg help).'.format(env_var), 'error')
-
-        exit(-1)
-
-
-def get_pg_venv_dir(pg_venv):
-    '''
-    Return the directory containing a pg_venv
-    '''
-    pg_venv_home = get_env_var('PG_VIRTUALENV_HOME')
-    return os.path.join(pg_venv_home, pg_venv)
-
-
-def get_pg_src(pg_venv):
-    '''
-    Compute PGDATA for a pg_venv
-    '''
-    return os.path.join(get_pg_venv_dir(pg_venv), 'src')
-
-
-def get_pg_data(pg_venv):
-    '''
-    Compute PGDATA for a pg_venv
-    '''
-    return os.path.join(get_pg_venv_dir(pg_venv), 'data')
-
-
-def get_pg_bin(pg_venv):
-    '''
-    Compute the path where a pg_venv has been/will be installed
-    '''
-    return os.path.join(get_pg_venv_dir(pg_venv), 'bin')
-
-
-def get_pg_lib(pg_venv):
-    '''
-    Compute the path where a pg_venv's libs have been/will be installed
-    '''
-    return os.path.join(get_pg_venv_dir(pg_venv), 'lib')
-
-
-def get_pg_log(pg_venv):
-    '''
-    Compute the path where a pg_venv's logs will be stored
-    '''
-    return os.path.join(get_pg_venv_dir(pg_venv), '{}.log'.format(pg_venv))
-
-
-def get_pg_port(pg_venv):
-    '''
-    Compute the port postgres will listen to, depending on its virtualenv name
-    '''
-    # convert the virtualenv name into an int
-    pg_port = int(''.join(format(ord(l), 'b') for l in pg_venv), base=2)
-
-    # make sure 1024 <= pg_port < 65535
-    pg_port = pg_port % (65535 - 1024) + 1024
-
-    return pg_port
-
-
-def retrieve_postgres_source(pg_venv=None):
-    '''
-    Copy the source code of postgres (location described in an env var) into
-    the src dir of the pg_venv
-
-    Returns true if all commands run returned 0, false otherwise.
-    '''
-    if pg_venv is None:
-        pg_venv = get_env_var('PG_VENV')
-
-    pg_dir = get_env_var('PG_DIR')
-    pg_src = get_pg_src(pg_venv)
-
-    # create the necessary directories
-    cmd = 'mkdir -p "{}"'.format(pg_src)
-    execute_cmd(cmd, 'Creating directories', exit_on_fail=True)
-
-    # copy the source tree
-    current_commit = subprocess.check_output('cd {} && git describe --tags'.format(pg_dir), shell=True).strip().decode('utf-8')
-    cmd = 'cd {} && git archive --format=tar HEAD | (cd {} && tar xf -)'.format(pg_dir, pg_src)
-    copy_return_code = execute_cmd(cmd, "Copying PostgreSQL's source tree, commit {}".format(current_commit), exit_on_fail=True)
-
-    return copy_return_code == 0
-
-
-def get_shell_function():
-    '''
-    Return the text for the function pg(), used as a wrapper around this
-    script.
-    All the actions whose output need to be sourced should go in the if clause
-    of the pg function, except this one (otherwise we would get into a
-    never-ending loop).
-    '''
-    sourced_actions = ['w', 'workon']
-    script_path = sys.argv[0] # this should be an absolute path
-    output = '# Put the following line in your .bashrc, and make sure it uses an absolute path:\n'
-    output += '# source <({} get_shell_function)\n'.format(script_path)
-
-    prefix = '' # manage indentation
-
-    output += prefix + 'function pg {\n'
-    prefix += '    '
-
-    if_clause = 'if [[ -n $1 && ('
-
-    # first action handled separately
-    if_clause += '$1 = {}'.format(sourced_actions[0])
-
-    # other actions
-    for action in sourced_actions[1:]:
-        if_clause += ' || $1 = {}'.format(action)
-    if_clause += ') ]]; then\n'
-
-    output += prefix + if_clause
-    prefix += '    '
-
-    output += prefix + 'source <({} $@ || echo "echo $($_)")\n'.format(script_path)
-
-    prefix = prefix[:-4]
-    output += prefix + 'else\n'
-    prefix += '    '
-
-    output += prefix + '{} $@\n'.format(script_path)
-
-    prefix = prefix[:-4]
-    output += prefix + 'fi\n'
-
-    prefix = prefix[:-4]
-    output += '}'
-
-    print(output)
-
-
-def initdb(pg_venv=None, exit_on_fail=False):
-    '''
-    Run initdb
-    '''
-    if not pg_venv:
-        pg_venv = get_env_var('PG_VENV')
-
-    pg_bin = get_pg_bin(pg_venv)
-
-    cmd = os.path.join(pg_bin, 'initdb -D {}'.format(get_pg_data(pg_venv)))
-    initdb_return_code = execute_cmd(cmd, 'Initializing database', process_output=False, exit_on_fail=exit_on_fail)
-
-    return initdb_return_code == 0
-
-
-def install(pg_venv=None, verbose=True, exit_on_fail=False):
-    '''
-    Run make install in postgresql source dir
-
-    Returns true if all commands run returned 0, false otherwise.
-    '''
-    if not pg_venv:
-        pg_venv = get_env_var('PG_VENV')
-    pg_src_dir = get_pg_src(pg_venv)
-    cmd = 'cd {} && make -s install && cd contrib && make -s install'.format(pg_src_dir)
-    install_return_code = execute_cmd(cmd, 'Installing PostgreSQL', verbose, process_output=False, exit_on_fail=exit_on_fail)
-
-    return install_return_code == 0
-
-
-def colorize(message, message_type='log'):
-    '''
-    Add color code to a string
-    '''
-    if message_type == 'log':
-        # don't change color
-        pass
-    elif message_type == 'error':
-        # red
-        message = '\033[0;31m' + message + '\033[0;m'
-    elif message_type == 'success':
-        # green
-        message = '\033[0;32m' + message + '\033[0;m'
-    elif message_type == 'warning':
-        # yellow
-        message = '\033[0;33m' + message + '\033[0;m'
-
-    return message
-
-
-def log(message, message_type='log', end='\n', prefix=True):
-    '''
-    Print a message to stdout
-    message_type changes the color in which the message is displayed
-    Possible message_type values: log, error, success
-    '''
-    print((LOG_PREFIX if prefix else '') + colorize(message, message_type), end=end, flush=True)
-
-
-
-def make(make_args=None, pg_venv=None, verbose=True, exit_on_fail=False):
-    '''
-    Run make in the postgresql source dir
-
-    Uses env var PG_DIR
-    <make_args> options that are passed to make
-
-    Returns true if all commands run returned 0, false otherwise.
-    '''
-    if not pg_venv:
-        pg_venv = get_env_var('PG_VENV')
-    pg_src_dir = get_pg_src(pg_venv)
-
-    if make_args is None:
-        make_args = []
-    # convert make_args list into a string
-    make_args = ' '.join(make_args)
-
-    cmd = 'cd {} && make -s {} && cd contrib && make -s {}'.format(pg_src_dir, make_args, make_args)
-    make_return_code = execute_cmd(cmd, 'Compiling PostgreSQL', verbose, exit_on_fail=exit_on_fail, process_output=False)
-
-    return make_return_code == 0
-
-
-def make_clean():
-    '''
-    Run make clean in the postgresql source dir
-
-    Uses env var PG_DIR
-    '''
-    pg_venv = get_env_var('PG_VENV')
-    pg_src_dir = get_pg_src(pg_venv)
-    cmd = 'cd {} && make -s clean'.format(pg_src_dir)
-    execute_cmd(cmd, 'Running make clean')
-
-
-def restart():
-    '''
-    Runs actions stop and start
-    '''
-    if pg_is_running():
-        stop()
-    start()
-
-
-def pg_is_running(pg_venv=None):
-    '''
-    Check if postgres is running
-    '''
-    if not pg_venv:
-        pg_venv = get_env_var('PG_VENV')
-
-    pg_ctl = os.path.join(get_pg_bin(pg_venv), 'pg_ctl')
-
-    if os.path.isfile(pg_ctl):
-        cmd = '{} status -D {}'.format(pg_ctl, get_pg_data(pg_venv))
-        return_code = execute_cmd(cmd, verbose=False, process_output=False)
-
-        return return_code == 0
-    else:
-        # binary does not exist so postgres likely isn't running
-        return False
-
-
-def rm_data(args=None):
-    '''
-    Removes the data directory for the specified pg_venv.
-    If a pg_venv is not provided, remove the data directory for the current one.
-    '''
-    if args is None:
-        pg_venv = get_env_var('PG_VENV')
-    else:
-        # only one argument is allowed
-        if len(args) > 1:
-            raise TypeError
-
-        pg_venv = args[0]
-
-    pg_data_dir = get_pg_data(pg_venv)
-
-    # ask for a confirmation to remove the data
-    log(
-        'You are about to delete all the data in your database, located in {}. '
-        'Please type its name to confirm:'.format(
-            'specified' if args else 'current',
-            pg_data_dir
-        ),
-        message_type='warning'
-    )
-    data_delete_confirmation = input()
-
-    if data_delete_confirmation != pg_venv:
-        log("The data won't be deleted.", message_type='error')
-        return False
-    else:
-        if pg_is_running(pg_venv):
-            stop()
-        cmd = 'rm -r {}/*'.format(pg_data_dir)
-        rm_return_code = execute_cmd(cmd, 'Removing all the data')
-
-        return rm_return_code == 0
-
-
-def server_log(args=None):
-    '''
-    Display the server log
-    If a pg_venv name is not provided, show the log for the current one.
-    '''
-    if args is None:
-        pg_venv = get_env_var('PG_VENV')
-    else:
-        # only one argument is allowed
-        if len(args) > 1:
-            raise TypeError
-
-        pg_venv = args[0]
-
-    # show the log
-    cmd = 'tail -f {}'.format(get_pg_log(pg_venv))
-    execute_cmd(cmd, 'Displaying server log')
-
-def start(args=None, exit_on_fail=False):
-    '''
-    Start a postgresql instance
-    If a pg_venv name is not provided, start the current one.
-    '''
-    if args is None:
-        pg_venv = get_env_var('PG_VENV')
-    else:
-        # only one argument is allowed
-        if len(args) > 1:
-            raise TypeError
-
-        pg_venv = args[0]
-
-    # start postgresql
-    cmd = '{} start -D {} -l {} --core-files --wait -o "-p {}"'.format(
-        os.path.join(get_pg_bin(pg_venv), 'pg_ctl'),
-        get_pg_data(pg_venv),
-        get_pg_log(pg_venv),
-        get_pg_port(pg_venv)
-    )
-    start_return_code = execute_cmd(cmd, 'Starting PostgreSQL', process_output=False, exit_on_fail=exit_on_fail)
-
-    return start_return_code == 0
-
-
-def stop(args=None):
-    '''
-    Stop a postgresql instance
-    If a pg_venv name is not provided, stop the current one.
-    '''
-    if args is None:
-        pg_venv = get_env_var('PG_VENV')
-        pg_ctl = os.path.join(get_pg_bin(pg_venv), 'pg_ctl')
-        cmd = '{} stop'.format(pg_ctl)
-    else:
-        # only one argument is allowed
-        if len(args) > 1:
-            raise TypeError
-
-        pg_venv = args[0]
-        pg_ctl = os.path.join(get_pg_bin(pg_venv), 'pg_ctl')
-
-        # if venv is given as a parameter, pass the data dir as parameter to
-        # pg_ctl
-        pg_data_dir = get_pg_data(pg_venv)
-        cmd = '{} stop -D {}'.format(pg_ctl, pg_data_dir)
-
-    # stop postgresql
-    stop_return_code = execute_cmd(cmd, 'Stopping PostgreSQL', process_output=False)
-
-    return stop_return_code == 0
-
-
-def usage():
-    print(USAGE)
-
-
-def workon(args=None):
-    '''
-    Print commands to set PG_VENV, PATH, PGDATA, LD_LIBRARY_PATH, PGPORT.
-    The result of this command is made to be sourced by the shell.
-
-    There is a default value for args even though the parameter is mandatory,
-    because we want to exit gracefully (since the output of this function is
-    sourced).
-    '''
-    try:
-        # we only expect one argument
-        if args is None:
-            raise TypeError("Missing argument pg_venv. See 'pg help' for details")
-        if len(args) > 1:
-            raise TypeError("Too many arguments. See 'pg help' for details")
-        pg_venv = args[0]
-
-        # raise an exception if the desired virtualenv does not exist
-        if not virtualenv_exists(pg_venv):
-            raise Exception('pg virtualenv {} does not exist. Use `pg create_virtualenv {}` to create it.'.format(pg_venv, pg_venv))
-
-        previous_pg_venv  = os.environ.get('PG_VENV', None)
-
-        path = os.environ['PATH'].split(':')
-        # remove previous version from PATH
-        if previous_pg_venv is not None:
-            previous_pg_path = get_pg_bin(previous_pg_venv)
-            path = [p for p in path if p != previous_pg_path]
-
-        # update path for current pg_venv
-        pg_bin_path = get_pg_bin(pg_venv)
-        path.insert(0, pg_bin_path)
-        output = 'export PATH={}\n'.format(':'.join(path))
-
-        ld_library_path = os.environ.get('LD_LIBRARY_PATH', '').split(':')
-        # remove previous version from LD_LIBRARY_PATH
-        if previous_pg_venv is not None:
-            previous_pg_lib_path = get_pg_lib(previous_pg_venv)
-            ld_library_path = [p for p in ld_library_path if p != previous_pg_lib_path]
-
-        # update LD_LIBRARY_PATH for current pg_venv
-        pg_lib_path = get_pg_lib(pg_venv)
-        ld_library_path.insert(0, pg_lib_path)
-        output += 'export LD_LIBRARY_PATH={}\n'.format(':'.join(ld_library_path))
-
-        # set PGPORT variable
-        # port is determined from the venv name, 1024 <= port <= 65535
-        # collisions are possible and not handled
-        pg_port = get_pg_port(pg_venv)
-        output += 'export PGPORT={}\n'.format(pg_port)
-
-        # update PS1 variable to display current pg_venv and PGPORT, and remove
-        # previous version
-        # Can't use .format() here for some obscure reason
-        # because of that characters mess
-        output += r'export PS1="[pg:' + pg_venv + ':' + str(pg_port) + r']${PS1#\[pg:*\]}"' + '\n'
-
-        # set PG_VENV variable
-        output += 'export PG_VENV={}\n'.format(pg_venv)
-
-        # set PGDATA variable
-        pg_data = get_pg_data(pg_venv)
-        output += 'export PGDATA={}\n'.format(pg_data)
-
-    except Exception as e:
-        output = 'echo -e "\033[0;31m{}\033[0;m"'.format(e)
-
-    print(output)
-
-
-ACTIONS = {
-    'make_check': make_check,
-    'configure': configure,
-    'create_virtualenv': create_virtualenv,
-    'get_shell_function': get_shell_function,
-    'help': usage,
-    'install': install,
-    'log': server_log,
-    'make': make,
-    'make_clean': make_clean,
-    'rm_data': rm_data,
-    'restart': restart,
-    'rm_virtualenv': rm_virtualenv,
-    'start': start,
-    'stop': stop,
-    'workon': workon,
-}
-
-ALIASES = {
-    'c': 'configure',
-    'h': 'help',
-    'i': 'install',
-    'l': 'log',
-    'm': 'make',
-    'mc': 'make_clean',
-    'w': 'workon',
-}
+        ACTIONS[action].execute(action_args)
+    except TypeError as e:
+        log('some arguments were not understood', 'error')
+        log('error message: {}'.format(e))
+        exit(2)
+
+
+def available_pg_venvs():
+    return os.listdir(get_env_var('PG_VIRTUALENV_HOME'))
 
 
 if __name__ == '__main__':
-    args = sys.argv
-    if len(args) < 2:
-        usage()
-        exit()
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest='action', metavar='<action>')
+    subparsers.required = True
 
-    action = args[1]
-    action_args = args[2:] if len(args) > 2 else None
-    execute_action(action, action_args)
+    # create a subparser for each action
+    action_parsers = {}
+    for _, action in ACTIONS.items():
+        action_parsers[action.name] = subparsers.add_parser(
+            action.name,
+            help=action.short_desc,
+            aliases = [action.alias] if action.alias else [],
+        )
+        action_parsers[action.name].set_defaults(func=getattr(action, 'execute'))
+
+    # define mandatory pg_venv argument for workon action
+    action_parsers['workon'].add_argument(
+        'pg_venv',
+        choices=available_pg_venvs(),
+        help='Existing pg_venv',
+        metavar='<pg_venv>'
+    )
+
+    #define mandatory pg_venv argument for create_virtualenv action
+    action_parsers['create_virtualenv'].add_argument(
+        'pg_venv',
+        help='New pg_venv',
+        metavar='<pg_venv>'
+    )
+
+    # define optional pg_venv argument for actions that need it
+    for action in ['log', 'restart', 'rm_data', 'rm_virtualenv', 'start', 'stop']:
+        action_parsers[action].add_argument(
+            'pg_venv',
+            nargs='?',
+            choices=available_pg_venvs(),
+            const=get_env_var('PG_VENV', error_on_fail=False),
+            help='Existing pg_venv',
+            metavar='<pg_venv>',
+        )
+
+    # define additional_options argument for actions that need it
+    for action in ['configure', 'make']:
+        action_parsers[action].add_argument(
+            'additional_args',
+            nargs='*',
+            help='Additional options to pass to the underlying command',
+            metavar='<additional_args>',
+        )
+
+    args = parser.parse_args()
+    action = args.func
+    action_args = vars(args)
+
+    # remove arguments that are not used by the action functions
+    del action_args['func']
+    del action_args['action']
+
+    action(action_args)
