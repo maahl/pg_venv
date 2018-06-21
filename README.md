@@ -93,6 +93,7 @@ pg stop
 pg create_virtualenv anotherfeature
 pg log anotherfeature
 pg workon anotherfeature
+pg list
 psql
 pg stop awesomefeature
 pg stop # defaults to current pg_venv

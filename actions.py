@@ -194,6 +194,27 @@ def install(pg_venv, verbose=True, exit_on_fail=False):
     return install_return_code == 0
 
 
+def list_pg_venv():
+    '''
+    List active and inactive pg_venv
+    '''
+    pg_venvs = available_pg_venvs()
+    current_pg_venv = get_env_var('PG_VENV', error_on_fail=False)
+
+    current_str = ' [current]'
+    sep_size = 4
+    pg_venv_column_size = max(max(map(len, pg_venvs)), len(current_pg_venv) + len(current_str)) + sep_size
+    port_column_size = 5 + sep_size
+    version_column_size = 7 + sep_size
+    format_str = '{:<' + str(pg_venv_column_size) + '}{:<' + str(port_column_size) + '}{:<' + str(version_column_size) + '}{}'
+
+    print(format_str.format('PG_VENV', 'PORT', 'VERSION', 'RUNNING'))
+    for pg_venv in pg_venvs:
+        pg_venv_str = pg_venv + current_str if pg_venv == current_pg_venv else pg_venv
+        running_str = colorize('Yes', 'success') if pg_is_running(pg_venv) else 'No'
+        print(format_str.format(pg_venv_str, get_pg_port(pg_venv), get_pg_version(pg_venv), running_str))
+
+
 def make(additional_args=[], pg_venv=None, verbose=True, exit_on_fail=False):
     '''
     Run make in the postgresql source dir
@@ -241,7 +262,7 @@ def make_clean(pg_venv=None):
     '''
     if pg_venv is None:
         pg_venv = get_env_var('PG_VENV')
-    
+
     pg_src_dir = get_pg_src(pg_venv)
     cmd = 'cd {} && make -s clean'.format(pg_src_dir)
     execute_cmd(cmd, 'Running make clean')
@@ -445,6 +466,7 @@ ACTIONS = {
     'fetch_pg_source': Action('fetch_pg_source', fetch_pg_source, "Fetch a new copy of postgresql's source code"),
     'get_shell_function': Action('get_shell_function', get_shell_function, 'Get the shell function to source'),
     'install': Action('install', install, "Install posgresql's binaries"),
+    'list': Action('list', list_pg_venv, 'List active and inactive pg_venv'),
     'log': Action('log', server_log, 'Display the server log', alias='l'),
     'make': Action('make', make, 'Compile postgresql'),
     'make_check': Action('make_check', make_check, "Run make check on postgres' source"),

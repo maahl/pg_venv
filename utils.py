@@ -34,7 +34,7 @@ def log(message, message_type='log', end='\n', prefix=True):
     print((LOG_PREFIX if prefix else '') + colorize(message, message_type), end=end, flush=True)
 
 
-def execute_cmd(cmd, cmd_description='', verbose=True, verbose_cmd=False, exit_on_fail=False, process_output=True):
+def execute_cmd(cmd, cmd_description='', verbose=True, verbose_cmd=False, exit_on_fail=False, process_output=True, error_output=True):
     '''
     Execute a shell command, binding stdin and stdout to this process' stdin
     and stdout.
@@ -58,7 +58,7 @@ def execute_cmd(cmd, cmd_description='', verbose=True, verbose_cmd=False, exit_o
 
     # display the process output if it returned non-zero, even if process output
     # is disabled.
-    if process.returncode != 0 and process_output == False:
+    if process.returncode != 0 and not process_output and error_output:
         print() # new line
         print(err.decode('utf-8'))
 
@@ -152,6 +152,21 @@ def get_pg_venv_dir(pg_venv):
     return os.path.join(pg_venv_home, pg_venv)
 
 
+def get_pg_version(pg_venv):
+    '''
+    Return the version of postgresql in a pg_venv
+    '''
+    pg_config = os.path.join(get_pg_bin(pg_venv), 'pg_config')
+    cmd = '{} --version'.format(pg_config)
+    version = subprocess.check_output(cmd, shell=True).strip().decode('utf-8').split()[1]
+
+    return version
+
+
+def available_pg_venvs():
+    return os.listdir(get_env_var('PG_VIRTUALENV_HOME'))
+
+
 def initdb(pg_venv=None, exit_on_fail=False):
     '''
     Run initdb
@@ -178,7 +193,7 @@ def pg_is_running(pg_venv=None):
 
     if os.path.isfile(pg_ctl):
         cmd = '{} status -D {}'.format(pg_ctl, get_pg_data(pg_venv))
-        return_code = execute_cmd(cmd, verbose=False, process_output=False)
+        return_code = execute_cmd(cmd, verbose=False, process_output=False, error_output=False)
 
         return return_code == 0
     else:

@@ -5,7 +5,7 @@ import os
 import sys
 
 from actions import ACTIONS
-from utils import get_env_var
+from utils import available_pg_venvs, get_env_var
 
 
 USAGE = '''
@@ -140,10 +140,6 @@ def execute_action(action, action_args):
         log('some arguments were not understood', 'error')
         log('error message: {}'.format(e))
         exit(2)
-
-
-def available_pg_venvs():
-    return os.listdir(get_env_var('PG_VIRTUALENV_HOME'))
 
 
 if __name__ == '__main__':
