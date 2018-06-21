@@ -69,7 +69,7 @@ def create_virtualenv(pg_venv):
     if pg_venv is None:
         pg_venv = get_env_var('PG_VENV')
 
-    copy_return_code = retrieve_postgres_source(pg_venv)
+    copy_return_code = fetch_pg_source(pg_venv)
 
     configure_return_code = configure(pg_venv=pg_venv, exit_on_fail=True)
     make_return_code = make(additional_args=['-j {}'.format(multiprocessing.cpu_count())], pg_venv=pg_venv, exit_on_fail=True)
@@ -90,6 +90,36 @@ def create_virtualenv(pg_venv):
         and initdb_return_code \
         and start_return_code \
         and createdb_return_code == 0
+
+
+def fetch_pg_source(pg_venv=None):
+    '''
+    Get a new copy of postgresql's source code and copy it in the pg_venv
+    '''
+    if pg_venv is None:
+        pg_venv = get_env_var('PG_VENV')
+
+    pg_dir = get_env_var('PG_DIR')
+    pg_src = get_pg_src(pg_venv)
+
+    # remove the previous source tree if needed
+    if os.path.isdir(pg_src):
+        cmd = 'rm -r {}'.format(pg_src)
+        rm_return_code = execute_cmd(cmd, 'Removing previous source tree', exit_on_fail=True)
+    else:
+        rm_return_code = 0
+
+    # create the necessary directories
+    cmd = 'mkdir -p "{}"'.format(pg_src)
+    execute_cmd(cmd, 'Creating directories', exit_on_fail=True)
+
+    # copy the source tree
+    current_commit = subprocess.check_output('cd {} && git describe --tags'.format(pg_dir), shell=True).strip().decode('utf-8')
+    cmd = 'cd {} && git archive --format=tar HEAD | (cd {} && tar xf -)'.format(pg_dir, pg_src)
+    copy_return_code = execute_cmd(cmd, "Copying PostgreSQL's source tree, commit {}".format(current_commit), exit_on_fail=True)
+
+    return rm_return_code == 0 and  copy_return_code == 0
+
 
 
 def get_shell_function():
@@ -412,6 +442,7 @@ def workon(pg_venv):
 ACTIONS = {
     'configure': Action('configure', configure, "Run configure on postgresql's source"),
     'create_virtualenv': Action('create_virtualenv', create_virtualenv, 'Create a new pg_venv'),
+    'fetch_pg_source': Action('fetch_pg_source', fetch_pg_source, "Fetch a new copy of postgresql's source code"),
     'get_shell_function': Action('get_shell_function', get_shell_function, 'Get the shell function to source'),
     'install': Action('install', install, "Install posgresql's binaries"),
     'log': Action('log', server_log, 'Display the server log', alias='l'),

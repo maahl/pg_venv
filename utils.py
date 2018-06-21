@@ -188,28 +188,3 @@ def pg_is_running(pg_venv=None):
 
 def pg_virtualenv_exists(pg_venv):
     return os.path.isdir(get_pg_venv_dir(pg_venv))
-
-
-def retrieve_postgres_source(pg_venv=None):
-    '''
-    Copy the source code of postgres (location described in an env var) into
-    the src dir of the pg_venv
-
-    Returns true if all commands run returned 0, false otherwise.
-    '''
-    if pg_venv is None:
-        pg_venv = get_env_var('PG_VENV')
-
-    pg_dir = get_env_var('PG_DIR')
-    pg_src = get_pg_src(pg_venv)
-
-    # create the necessary directories
-    cmd = 'mkdir -p "{}"'.format(pg_src)
-    execute_cmd(cmd, 'Creating directories', exit_on_fail=True)
-
-    # copy the source tree
-    current_commit = subprocess.check_output('cd {} && git describe --tags'.format(pg_dir), shell=True).strip().decode('utf-8')
-    cmd = 'cd {} && git archive --format=tar HEAD | (cd {} && tar xf -)'.format(pg_dir, pg_src)
-    copy_return_code = execute_cmd(cmd, "Copying PostgreSQL's source tree, commit {}".format(current_commit), exit_on_fail=True)
-
-    return copy_return_code == 0

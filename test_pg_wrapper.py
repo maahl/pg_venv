@@ -44,8 +44,8 @@ class CreateVirtualenvTestCase(unittest.TestCase):
         shutil.rmtree(TMP_DIR)
 
 
-    def test_00_retrieve_postgres_source(self):
-        return_code = retrieve_postgres_source(TMP_PG_VENV)
+    def test_00_fetch_pg_source(self):
+        return_code = fetch_pg_source(TMP_PG_VENV)
 
         # check that the commands were ran successfully
         self.assertTrue(return_code)

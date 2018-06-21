@@ -12,6 +12,7 @@ case "$state" in
         local actions; actions=(
             "configure:run ./configure in source dir"
             "create_virtualenv: create a new virtualenv"
+            "fetch_pg_source: fetch postgresql's source code"
             "get_shell_function:output the wrapper function"
             "install:run make install in source dir"
             "l:alias for 'log'"
