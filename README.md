@@ -8,9 +8,13 @@ It is inspired by python virtualenv: when working in a pg\_venv, the relevant
 environment variables are set so that you don't have to worry about it
 yourself.
 
+Each pg\_venv has its own copy of postgresql's source code, its binaries, its
+data directory, its config and its log file.
+
 Different pg\_venv can use different versions of PostgreSQL without problem.
 Several instances can be run at the same time, they will all use the appropriate
-binaries and data directories, and a different port each.
+binaries and data directories, and a different port each, so that they can run
+simultaneously.
 
 The port number is derived from the name of the venv; there can be collisions
 and they are not handled. If you encounter one, you should just change the name
@@ -34,10 +38,14 @@ The meaning of the variables is explained in the help text: `./pg_wrapper.py
 
 For example, in your bashrc:
 
-```
+```sh
+# location of postgresql's git repository
 export PG_DIR=$HOME/projects/postgresql
+# location where pg_venvs will be stored
 export PG_VIRTUALENV_HOME=$HOME/.pg_virtualenvs
+# options to pass to the configure script for compiling postgresql
 export PG_CONFIGURE_OPTIONS="--enable-cassert --enable-debug --enable-depend"
+# define the pg function
 source <(/home/user/projects/pg_wrapper/pg_wrapper.py get_shell_function)
 ```
 
@@ -61,13 +69,15 @@ pg create_virtualenv awesomefeature
 # this will set several env variables derived from the name of the venv, e.g.
 # the install directory, data directory, shell prompt, etc.
 pg workon awesomefeature
+psql
 
 # recompile postgres
 # note: the following actions do nothing but call the underlying programs
 # (configure and make); they are here merely because they allow to compile
 # postgres without moving to its source tree.
+pg fetch_pg_source
 pg configure
-pg make -j 8 # you can pass arguments to make
+pg make -- -j 8 # you can pass arguments to make
 pg check # make check
 pg install # runs make install
 
@@ -76,8 +86,17 @@ initdb
 pg start # start postgres
 pg log # check the logs, in case there was a problem
 createdb
-psql # hack around
+psql
 pg stop
-pg rmdata # it will ask to type the name of the venv as a confirmation
 
+# you can run another instance at the same time
+pg create_virtualenv anotherfeature
+pg log anotherfeature
+pg workon anotherfeature
+psql
+pg stop awesomefeature
+pg stop # defaults to current pg_venv
+
+pg rm_data # it will ask to type the name of the venv as a confirmation
+pg rm_virtualenv
 ```
