@@ -179,7 +179,7 @@ def get_shell_function():
     print(output)
 
 
-def install(pg_venv, verbose=True, exit_on_fail=False):
+def install(pg_venv=None, verbose=True, exit_on_fail=False):
     '''
     Run make install in postgresql source dir
 
