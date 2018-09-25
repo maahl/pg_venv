@@ -203,16 +203,30 @@ def list_pg_venv():
 
     current_str = ' [current]'
     sep_size = 4
-    pg_venv_column_size = max(max(map(len, pg_venvs)), len(current_pg_venv) + len(current_str)) + sep_size
+
+    pg_venv_column_size = max(
+        max(map(len, pg_venvs)),
+        len(current_pg_venv if current_pg_venv else []) + len(current_str)
+    ) + sep_size
     port_column_size = 5 + sep_size
     version_column_size = 7 + sep_size
-    format_str = '{:<' + str(pg_venv_column_size) + '}{:<' + str(port_column_size) + '}{:<' + str(version_column_size) + '}{}'
+    running_column_size = 7 + sep_size
+    disk_usage_column_size = 10 + sep_size
 
-    print(format_str.format('PG_VENV', 'PORT', 'VERSION', 'RUNNING'))
+    format_str = \
+        '{:<' + str(pg_venv_column_size) + \
+        '}{:<' + str(port_column_size) + \
+        '}{:<' + str(version_column_size) + \
+        '}{:<' + str(running_column_size) + \
+        '}{:<' + str(disk_usage_column_size) + \
+        '}'
+
+    print(format_str.format('PG_VENV', 'PORT', 'VERSION', 'RUNNING', 'DISK USAGE'))
     for pg_venv in pg_venvs:
         pg_venv_str = pg_venv + current_str if pg_venv == current_pg_venv else pg_venv
-        running_str = colorize('Yes', 'success') if pg_is_running(pg_venv) else 'No'
-        print(format_str.format(pg_venv_str, get_pg_port(pg_venv), get_pg_version(pg_venv), running_str))
+        running_str = colorize('Yes        ', 'success') if pg_is_running(pg_venv) else 'No'
+        disk_usage_str = get_disk_usage(pg_venv)
+        print(format_str.format(pg_venv_str, get_pg_port(pg_venv), get_pg_version(pg_venv), running_str, disk_usage_str))
 
 
 def make(additional_args=[], pg_venv=None, verbose=True, exit_on_fail=False):

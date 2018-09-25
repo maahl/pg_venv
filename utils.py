@@ -96,6 +96,18 @@ def get_env_var(env_var, error_on_fail=True):
             return None
 
 
+def get_disk_usage(pg_venv):
+    '''
+    Compute the disk space used by a pg_venv
+    '''
+    cmd = 'du -hd 0 {} | cut -f 1'.format(get_pg_venv_dir(pg_venv))
+    process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out, err = process.communicate()
+    out = out.decode('utf-8').strip()
+
+    return out
+
+
 def get_pg_bin(pg_venv):
     '''
     Compute the path where a pg_venv has been/will be installed

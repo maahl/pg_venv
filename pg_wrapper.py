@@ -50,6 +50,9 @@ Actions:
 
         Uses environment variable PG_DIR
 
+    list:
+        List all available pg_venv, and show some info about them
+
     log, l:
         pg log [<pg_venv>]
 
