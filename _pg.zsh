@@ -35,7 +35,7 @@ case "$state" in
     (args)
         case "$line[1]" in
             (l|log|rm_virtualenv|start|stop|w|workon)
-                _values 'pg versions' "${(uonzf)$(ls $PG_VIRTUALENV_HOME | cut -d '-' -f 2)}"
+                _values 'pg versions' "${(uonzf)$(ls $PG_VIRTUALENV_HOME)}"
             ;;
         esac
     ;;
