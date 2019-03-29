@@ -1,4 +1,4 @@
-# pg\_wrapper
+# pg\_venv
 
 This is a wrapper script for various PostgreSQL common actions.
 It is intended for PostgreSQL development purposes, and has not been thoroughly
@@ -26,14 +26,14 @@ A completion file for zsh is provided.
 # Installation
 
 To install it, you just need to define a few environment variables in your
-bashrc, and to source the output of `./pg_wrapper.py get_shell_function`.
+bashrc, and to source the output of `./pg_venv.py get_shell_function`.
 
 It generates a bash function to determine at runtime if the output of a command
 should be displayed (general case) or sourced (currently, only needed when
 switching venv). A comment in the output of this function will tell you the
 exact line you should copy in your bashrc.
 
-The meaning of the variables is explained in the help text: `./pg_wrapper.py
+The meaning of the variables is explained in the help text: `./pg_venv.py
 --help`.
 
 For example, in your bashrc:
@@ -46,7 +46,7 @@ export PG_VIRTUALENV_HOME=$HOME/.pg_virtualenvs
 # options to pass to the configure script for compiling postgresql
 export PG_CONFIGURE_OPTIONS="--enable-cassert --enable-debug --enable-depend"
 # define the pg function
-source <(/home/user/projects/pg_wrapper/pg_wrapper.py get_shell_function)
+source <(/home/user/projects/pg_venv/pg_venv get_shell_function)
 ```
 
 If necessary, correct the path to the script, it's possible in some cases that
