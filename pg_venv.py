@@ -40,7 +40,7 @@ Actions:
         action workon). The output of this action itself is to be sourced.
 
         Line to put in your .bashrc:
-            `source <(/absolute/path/to/pg_wrapper.py get_shell_function)`
+            `source <(/absolute/path/to/pg_venv.py get_shell_function)`
 
     help, h:
         Display this help text

@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from actions import *
-from pg_wrapper import *
+from pg_venv import *
 from utils import *
 
 
