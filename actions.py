@@ -161,6 +161,7 @@ def get_shell_function():
     output += prefix + 'else\n'
     prefix += '    '
     output += prefix + 'echo $cmd_output\n'
+    output += prefix + 'return 1\n'
     prefix = prefix[:-4]
     output += prefix + 'fi\n'
 
