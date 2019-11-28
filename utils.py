@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 
 
 LOG_PREFIX = 'pg: '
@@ -31,7 +32,13 @@ def log(message, message_type='log', end='\n', prefix=True):
     message_type changes the color in which the message is displayed
     Possible message_type values: log, error, success
     '''
-    print((LOG_PREFIX if prefix else '') + colorize(message, message_type), end=end, flush=True)
+    out = sys.stderr if message_type in ['error', 'warning'] else sys.stdout
+    print(
+        (LOG_PREFIX if prefix else '') + colorize(message, message_type),
+        file=out,
+        end=end,
+        flush=True,
+    )
 
 
 def execute_cmd(cmd, cmd_description='', verbose=True, verbose_cmd=False, exit_on_fail=False, process_output=True, error_output=True):
