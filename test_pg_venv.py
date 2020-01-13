@@ -1,19 +1,19 @@
 #! /usr/bin/env python3
 
+import multiprocessing
 import os
 import shutil
+import sys
 import unittest
 from unittest.mock import patch
 
-from actions import *
-from pg_venv import *
-from utils import *
+from actions import configure, create_virtualenv, get_shell_function, install, list_pg_venv, make, make_check, make_clean, restart, rm_data, rm_virtualenv, server_log, start, stop, workon
+from utils import pg_is_running, get_env_var, get_pg_src, get_pg_bin, initdb, get_pg_data, get_pg_venv_dir, execute_cmd
 
 
 TMP_DIR = os.path.abspath('.test_data')
 TMP_PG_VENV = 'tmp_pg_venv'
 PERSISTENT_PG_VENV = 'persistent_pg_venv'
-PERSISTENT_PG_VENV_2 = 'persistent_pg_venv_2'
 
 
 class CreateVirtualenvTestCase(unittest.TestCase):
@@ -42,89 +42,45 @@ class CreateVirtualenvTestCase(unittest.TestCase):
         if pg_is_running(TMP_PG_VENV):
             stop(TMP_PG_VENV)
         shutil.rmtree(TMP_DIR)
+        pg_dir = get_env_var('PG_DIR')
+        execute_cmd('cd {} && git branch -d {}'.format(pg_dir, TMP_PG_VENV), 'removing temporary branch')
 
-
-    def test_00_fetch_pg_source(self):
-        return_code = fetch_pg_source(TMP_PG_VENV)
-
-        # check that the commands were ran successfully
-        self.assertTrue(return_code)
-
-        # check that at least 1 file is actually there
-        self.assertTrue(os.path.isfile(os.path.join(get_pg_src(TMP_PG_VENV), 'README')))
+    
+    def test_00_create_virtualenv(self):
+        return_code = create_virtualenv(pg_venv=TMP_PG_VENV)
+        print('create_virtualenv return code: ', return_code)
+        self.assertTrue(return_code == 0)
 
 
     def test_01_configure(self):
-        return_code = configure(pg_venv=TMP_PG_VENV)
+        return_code = configure(pg_venv=PERSISTENT_PG_VENV)
 
-        self.assertTrue(return_code)
-
-
-    def test_02_make(self):
-        return_code = make(additional_args=['-j {}'.format(multiprocessing.cpu_count())], pg_venv=TMP_PG_VENV)
-
-        self.assertTrue(return_code)
-
-        # check that at least 1 binary was generated
-        self.assertTrue(os.path.isfile(os.path.join(get_pg_src(TMP_PG_VENV), 'src', 'bin', 'pg_config', 'pg_config')))
+        self.assertTrue(return_code == 0)
 
 
-    def test_03_make_check(self):
-        return_code = make_check(TMP_PG_VENV)
+    def test_02_rm_data(self):
+        with patch('builtins.input', return_value=TMP_PG_VENV) as input: #pylint: disable=unused-variable
+            return_code = rm_data(TMP_PG_VENV)
+
+        self.assertTrue(return_code == 0)
+        self.assertEquals(len(os.listdir(get_pg_data(TMP_PG_VENV))), 0)
 
 
-    def test_04_install(self):
-        return_code = install(TMP_PG_VENV)
-
-        self.assertTrue(return_code)
-
-        # check that at least 1 binary is available
-        self.assertTrue(os.path.isfile(os.path.join(get_pg_bin(TMP_PG_VENV), 'pg_config')))
-
-
-    def test_05_initdb(self):
+    def test_03_initdb(self):
         return_code = initdb(TMP_PG_VENV)
 
-        self.assertTrue(return_code)
+        self.assertTrue(return_code == 0)
 
         # check that the data directory exists and contains at least 1 file
         self.assertTrue(os.path.isfile(os.path.join(get_pg_data(TMP_PG_VENV), 'postgresql.conf')))
 
 
-    def test_06_start(self):
-        return_code = start(TMP_PG_VENV)
+    def test_04_rm_virtualenv(self):
+        # pylint: disable=C0321
+        with patch('builtins.input', return_value=TMP_PG_VENV) as input: #pylint: disable=unused-variable
+            return_ok = rm_virtualenv(TMP_PG_VENV)
 
-        self.assertTrue(return_code)
-        self.assertTrue(pg_is_running(TMP_PG_VENV))
-
-
-    def test_07_stop(self):
-        return_code = stop(TMP_PG_VENV)
-
-        self.assertTrue(return_code)
-        self.assertFalse(pg_is_running(TMP_PG_VENV))
-
-
-    def test_08_rm_data(self):
-        with patch('builtins.input', return_value=TMP_PG_VENV) as input:
-            return_code = rm_data(TMP_PG_VENV)
-
-        self.assertTrue(return_code)
-        self.assertEquals(len(os.listdir(get_pg_data(TMP_PG_VENV))), 0)
-
-
-    def test_09_create_virtualenv(self):
-        return_code = create_virtualenv(TMP_PG_VENV)
-
-        self.assertTrue(return_code)
-        self.assertTrue(pg_is_running(TMP_PG_VENV))
-
-
-    def test_10_rm_virtualenv(self):
-        with patch('builtins.input', return_value=TMP_PG_VENV) as input:
-            return_code = rm_virtualenv(TMP_PG_VENV)
-
-        self.assertTrue(return_code)
+        self.assertTrue(return_ok == 0)
         self.assertFalse(os.path.isdir(get_pg_venv_dir(TMP_PG_VENV)))
 
 
@@ -133,12 +89,30 @@ class ActionsTestCase(unittest.TestCase):
     def setUpClass(cls):
         os.environ['PG_VIRTUALENV_HOME'] = TMP_DIR
         start(PERSISTENT_PG_VENV)
-        start(PERSISTENT_PG_VENV_2)
 
     @classmethod
     def tearDownClass(cls):
         stop(PERSISTENT_PG_VENV)
-        stop(PERSISTENT_PG_VENV_2)
+
+    def test_01_stop(self):
+        return_code = stop(PERSISTENT_PG_VENV)
+
+        self.assertTrue(return_code == 0)
+        self.assertFalse(pg_is_running(PERSISTENT_PG_VENV))
+
+
+    def test_02_start(self):
+        return_code = start(PERSISTENT_PG_VENV)
+
+        self.assertTrue(return_code == 0)
+        self.assertTrue(pg_is_running(PERSISTENT_PG_VENV))
+
+
+    def test_03_restart(self):
+        return_code = restart(PERSISTENT_PG_VENV)
+
+        self.assertTrue(return_code == 0)
+        self.assertTrue(pg_is_running(PERSISTENT_PG_VENV))
 
 
 if __name__ == '__main__':
@@ -158,16 +132,11 @@ if __name__ == '__main__':
     os.environ['PG_VIRTUALENV_HOME'] = TMP_DIR
 
     # create two identical virtualenvs, in case they don't exist yet
-    test_virtualenvs_are_present = os.path.isdir(get_pg_data(PERSISTENT_PG_VENV)) \
-        and os.path.isdir(get_pg_data(PERSISTENT_PG_VENV_2))
+    test_virtualenv_is_present = os.path.isdir(get_pg_data(PERSISTENT_PG_VENV))
 
-    if not test_virtualenvs_are_present:
+    if not test_virtualenv_is_present:
         create_virtualenv(PERSISTENT_PG_VENV)
         stop(PERSISTENT_PG_VENV)
-
-        # copy the first one into the second one to save time
-        cmd = 'cp -r {} {}'.format(get_pg_venv_dir(PERSISTENT_PG_VENV), get_pg_venv_dir(PERSISTENT_PG_VENV_2))
-        execute_cmd(cmd, 'Copying virtualenv')
 
     actions_test_suite = unittest.TestSuite()
     actions_test_suite.addTest(unittest.makeSuite(ActionsTestCase))
