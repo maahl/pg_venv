@@ -72,17 +72,21 @@ pg create_virtualenv awesomefeature
 pg workon awesomefeature
 psql
 
+# write your patch for postgres
+# $PG_SRC points to the git worktree for the current pg_venv.
+cd $PG_SRC
+$EDITOR
+
 # recompile postgres
-# note: the following actions do nothing but call the underlying programs
-# (configure and make); they are here merely because they allow to compile
+# note: the following actions do nothing but call the underlying program
+# (make); they are here merely because they allow to compile
 # postgres without moving to its source tree.
-pg fetch_pg_source
-pg configure
 pg make -- -j 8 # you can pass arguments to make
 pg check # make check
 pg install # runs make install
 
-# initialize the database
+# initialize the database, your $PATH has been updated to include the 
+# appropriate binaries for the current pg_venv
 initdb
 pg start # start postgres
 pg log # check the logs, in case there was a problem

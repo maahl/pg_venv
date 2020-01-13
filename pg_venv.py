@@ -105,7 +105,7 @@ Actions:
 
         <pg_venv>: a string to identify the current postgresql build
 
-        Set PATH to use PG_DIR/bin, set PG_VENV, PGPORT, PGDATA,
+        Set PATH to use PG_DIR/bin, set PG_VENV, PG_SRC, PGPORT, PGDATA,
         LD_LIBRARY_PATH, and display <pg_venv> in the prompt (PS1). The
         output of this action is made to be sourced by bash (because it changes
         the environment). See action 'get-shell-function' to ease that.
@@ -117,7 +117,7 @@ Environment variables:
         'configure'
 
     PG_DIR:
-        Contains path to the postgresql source code
+        Contains path to the postgresql original repository
 
     PG_VIRTUALENV_HOME:
         Contains the data for a pg_venv, including a copy of the source code

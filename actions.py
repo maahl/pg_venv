@@ -469,6 +469,10 @@ def workon(pg_venv):
         pg_data = get_pg_data(pg_venv)
         output += 'export PGDATA={}\n'.format(pg_data)
 
+        # set PG_SRC variable
+        pg_src = get_pg_src(pg_venv)
+        output += 'export PG_SRC={}\n'.format(pg_src)
+
     except Exception as e:
         output = 'echo -e "\033[0;31m{}\033[0;m"'.format(e)
 
