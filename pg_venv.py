@@ -5,7 +5,7 @@ import os
 import sys
 
 from actions import ACTIONS
-from utils import available_pg_venvs, get_env_var
+from utils import available_pg_venvs, get_env_var, log
 
 
 USAGE = '''
@@ -30,9 +30,9 @@ Actions:
         Uses environment variables PG_DIR, PG_CONFIGURE_OPTIONS, and PG_VENV.
 
     create_virtualenv:
-        Create a new pg_venv, by copying the postgres' source tree, compiling
-        it, installing it, running initdb, starting the server and creating a
-        db using createdb.
+        Create a new pg_venv, by creating a new git worktree and checking out a
+        branch named after your pg_venv, compiling the code, installing it, 
+        running initdb, starting the server and creating a db using createdb.
 
     get_shell_function:
         Return the function pg() that's used as a wrapper around this script

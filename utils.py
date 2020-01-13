@@ -3,7 +3,7 @@ import subprocess
 import sys
 
 
-LOG_PREFIX = 'pg: '
+_LOG_PREFIX = 'pg: '
 
 
 def colorize(message, message_type='log'):
@@ -34,7 +34,7 @@ def log(message, message_type='log', end='\n', prefix=True):
     '''
     out = sys.stderr if message_type in ['error', 'warning'] else sys.stdout
     print(
-        (LOG_PREFIX if prefix else '') + colorize(message, message_type),
+        (_LOG_PREFIX if prefix else '') + colorize(message, message_type),
         file=out,
         end=end,
         flush=True,
@@ -61,7 +61,7 @@ def execute_cmd(cmd, cmd_description='', verbose=True, verbose_cmd=False, exit_o
         process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     else:
         process = subprocess.Popen(cmd, shell=True)
-    out, err = process.communicate()
+    _, err = process.communicate()
 
     # display the process output if it returned non-zero, even if process output
     # is disabled.
@@ -109,7 +109,7 @@ def get_disk_usage(pg_venv):
     '''
     cmd = 'du -hd 0 {} | cut -f 1'.format(get_pg_venv_dir(pg_venv))
     process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    out, err = process.communicate()
+    out, _ = process.communicate()
     out = out.decode('utf-8').strip()
 
     return out
@@ -158,7 +158,7 @@ def get_pg_port(pg_venv):
 
 def get_pg_src(pg_venv):
     '''
-    Compute PGDATA for a pg_venv
+    Compute the directory where the source code of a pg_venv is stored
     '''
     return os.path.join(get_pg_venv_dir(pg_venv), 'src')
 
@@ -198,7 +198,7 @@ def initdb(pg_venv=None, exit_on_fail=False):
     cmd = os.path.join(pg_bin, 'initdb -D {}'.format(get_pg_data(pg_venv)))
     initdb_return_code = execute_cmd(cmd, 'Initializing database', process_output=False, exit_on_fail=exit_on_fail)
 
-    return initdb_return_code == 0
+    return initdb_return_code
 
 
 def pg_is_running(pg_venv=None):

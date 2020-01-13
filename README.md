@@ -61,7 +61,8 @@ Example usage:
 
 ```sh
 # create a pg_venv
-# this will copy postgres' source, compile it, install it, start it and create a
+# this will create a new git worktree of postgresql and a branch named after your 
+# pg_venv, compile the code, install it, start the server and create a
 # db
 pg create_virtualenv awesomefeature
 

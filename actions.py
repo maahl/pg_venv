@@ -57,19 +57,19 @@ def configure(additional_args=None, pg_venv=None, verbose=True, exit_on_fail=Fal
         log('PG_CONFIGURE_OPTIONS contained option --prefix, but this has been '
             'ignored.', 'warning')
 
-    return configure_return_code == 0
+    return configure_return_code
 
 
 def create_virtualenv(pg_venv):
     '''
-    Create a new venv, by copying the source tree, configuring, compiling,
+    Create a new venv, by creating a new git worktree, configuring, compiling,
     installing, initializing the cluster, creating a db and starting the
     server.
     '''
     if pg_venv is None:
         pg_venv = get_env_var('PG_VENV')
 
-    copy_return_code = fetch_pg_source(pg_venv)
+    worktree_return_code = create_git_worktree(pg_venv)
 
     configure_return_code = configure(pg_venv=pg_venv, exit_on_fail=True)
     make_return_code = make(additional_args=['-j {}'.format(multiprocessing.cpu_count())], pg_venv=pg_venv, exit_on_fail=True)
@@ -83,18 +83,20 @@ def create_virtualenv(pg_venv):
     createdb_return_code = execute_cmd(cmd, 'Creating a database', exit_on_fail=True)
 
     log('pg_virtualenv {} created. Run `pg workon {}` to use it.'.format(pg_venv, pg_venv), 'success')
+    log('worktree {} configure {} make {} install {} initdb {} start {} createdb {}'.format(worktree_return_code, configure_return_code, make_return_code, install_return_code, initdb_return_code, start_return_code, createdb_return_code))
 
-    return copy_return_code \
-        and make_return_code \
-        and install_return_code \
-        and initdb_return_code \
-        and start_return_code \
-        and createdb_return_code == 0
+    return worktree_return_code \
+        + configure_return_code \
+        + make_return_code \
+        + install_return_code \
+        + initdb_return_code \
+        + start_return_code \
+        + createdb_return_code
 
 
-def fetch_pg_source(pg_venv=None):
+def create_git_worktree(pg_venv=None):
     '''
-    Get a new copy of postgresql's source code and copy it in the pg_venv
+    Create a new worktree of postgresql's source code in the pg_venv directory
     '''
     if pg_venv is None:
         pg_venv = get_env_var('PG_VENV')
@@ -102,24 +104,16 @@ def fetch_pg_source(pg_venv=None):
     pg_dir = get_env_var('PG_DIR')
     pg_src = get_pg_src(pg_venv)
 
-    # remove the previous source tree if needed
-    if os.path.isdir(pg_src):
-        cmd = 'rm -r {}'.format(pg_src)
-        rm_return_code = execute_cmd(cmd, 'Removing previous source tree', exit_on_fail=True)
-    else:
-        rm_return_code = 0
-
-    # create the necessary directories
-    cmd = 'mkdir -p "{}"'.format(pg_src)
-    execute_cmd(cmd, 'Creating directories', exit_on_fail=True)
-
-    # copy the source tree
+    # create a new worktree
     current_commit = subprocess.check_output('cd {} && git describe --tags'.format(pg_dir), shell=True).strip().decode('utf-8')
-    cmd = 'cd {} && git archive --format=tar HEAD | (cd {} && tar xf -)'.format(pg_dir, pg_src)
-    copy_return_code = execute_cmd(cmd, "Copying PostgreSQL's source tree, commit {}".format(current_commit), exit_on_fail=True)
+    cmd = 'cd {} && git worktree add {} -b {}'.format(
+        pg_dir,
+        pg_src,
+        pg_venv
+    )
+    worktree_return_code = execute_cmd(cmd, "Creating a new PostgreSQL worktree with branch {} based on branch {}".format(pg_venv, current_commit), exit_on_fail=True)
 
-    return rm_return_code == 0 and  copy_return_code == 0
-
+    return worktree_return_code
 
 
 def get_shell_function():
@@ -192,7 +186,7 @@ def install(pg_venv=None, verbose=True, exit_on_fail=False):
     cmd = 'cd {} && make -s install && cd contrib && make -s install'.format(pg_src_dir)
     install_return_code = execute_cmd(cmd, 'Installing PostgreSQL', verbose, process_output=False, exit_on_fail=exit_on_fail)
 
-    return install_return_code == 0
+    return install_return_code
 
 
 def list_pg_venv():
@@ -250,7 +244,7 @@ def make(additional_args=[], pg_venv=None, verbose=True, exit_on_fail=False):
     cmd = 'cd {} && make -s {} && cd contrib && make -s {}'.format(pg_src_dir, additional_args, additional_args)
     make_return_code = execute_cmd(cmd, 'Compiling PostgreSQL', verbose, exit_on_fail=exit_on_fail, process_output=False)
 
-    return make_return_code == 0
+    return make_return_code
 
 
 def make_check(pg_venv=None):
@@ -266,7 +260,7 @@ def make_check(pg_venv=None):
     cmd = 'cd {} && make -s check'.format(pg_src_dir)
     make_check_return_code = execute_cmd(cmd, 'Running make check', process_output=False)
 
-    return make_check_return_code == 0
+    return make_check_return_code
 
 
 def make_clean(pg_venv=None):
@@ -289,7 +283,9 @@ def restart(pg_venv):
     '''
     if pg_is_running(pg_venv):
         stop(pg_venv)
-    start(pg_venv)
+    return_code = start(pg_venv)
+
+    return return_code
 
 
 def rm_data(pg_venv):
@@ -319,7 +315,7 @@ def rm_data(pg_venv):
         cmd = 'rm -r {}/*'.format(pg_data_dir)
         rm_return_code = execute_cmd(cmd, 'Removing all the data')
 
-        return rm_return_code == 0
+        return rm_return_code
 
 
 def rm_virtualenv(pg_venv):
@@ -335,10 +331,11 @@ def rm_virtualenv(pg_venv):
         return
 
     pg_venv_dir = get_pg_venv_dir(pg_venv)
+    pg_dir = get_env_var('PG_DIR')
 
     # ask for a confirmation to remove the data
     log(
-        'You are about to delete all the data for the {} pg_venv, located in {}. '
+        'You are about to delete all the data for the {} pg_venv, located in {}.'
         'Please type its name to confirm:'.format(
             'specified' if pg_venv_specified else 'current',
             pg_venv_dir
@@ -353,12 +350,15 @@ def rm_virtualenv(pg_venv):
     else:
         if pg_is_running(pg_venv):
             stop_return_code = stop(pg_venv)
-        else:
-            stop_return_code = True
+            if stop_return_code != 0:
+                return stop_return_code
+
+        cmd = 'cd {} && git worktree remove {}'.format(pg_dir, get_pg_src(pg_venv))
+        rm_worktree_return_code = execute_cmd(cmd, 'Removing virtualenv {}'.format(pg_venv))
 
         cmd = 'rm -r {}'.format(pg_venv_dir)
-        rm_return_code = execute_cmd(cmd, 'Removing virtualenv {}'.format(pg_venv))
-        return stop_return_code and rm_return_code == 0
+        rm_dir_return_code = execute_cmd(cmd, 'Removing virtualenv {}'.format(pg_venv))
+        return rm_dir_return_code + rm_worktree_return_code
 
 
 def server_log(pg_venv):
@@ -391,7 +391,7 @@ def start(pg_venv, exit_on_fail=False):
     )
     start_return_code = execute_cmd(cmd, 'Starting PostgreSQL', process_output=False, exit_on_fail=exit_on_fail)
 
-    return start_return_code == 0
+    return start_return_code
 
 
 def stop(pg_venv):
@@ -409,7 +409,7 @@ def stop(pg_venv):
     # stop postgresql
     stop_return_code = execute_cmd(cmd, 'Stopping PostgreSQL', process_output=False)
 
-    return stop_return_code == 0
+    return stop_return_code
 
 
 def workon(pg_venv):
@@ -478,7 +478,6 @@ def workon(pg_venv):
 ACTIONS = {
     'configure': Action('configure', configure, "Run configure on postgresql's source"),
     'create_virtualenv': Action('create_virtualenv', create_virtualenv, 'Create a new pg_venv'),
-    'fetch_pg_source': Action('fetch_pg_source', fetch_pg_source, "Fetch a new copy of postgresql's source code"),
     'get_shell_function': Action('get_shell_function', get_shell_function, 'Get the shell function to source'),
     'install': Action('install', install, "Install posgresql's binaries"),
     'list': Action('list', list_pg_venv, 'List active and inactive pg_venv'),
