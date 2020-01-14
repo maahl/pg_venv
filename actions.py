@@ -60,7 +60,7 @@ def configure(additional_args=None, pg_venv=None, verbose=True, exit_on_fail=Fal
     return configure_return_code
 
 
-def create_virtualenv(pg_venv):
+def create_virtualenv(pg_venv, pg_branch):
     '''
     Create a new venv, by creating a new git worktree, configuring, compiling,
     installing, initializing the cluster, creating a db and starting the
@@ -69,7 +69,11 @@ def create_virtualenv(pg_venv):
     if pg_venv is None:
         pg_venv = get_env_var('PG_VENV')
 
-    worktree_return_code = create_git_worktree(pg_venv)
+    # unpack the argument
+    if pg_branch is not None:
+        pg_branch = pg_branch[0]
+
+    worktree_return_code = create_git_worktree(pg_venv, pg_branch)
 
     configure_return_code = configure(pg_venv=pg_venv, exit_on_fail=True)
     make_return_code = make(additional_args=['-j {}'.format(multiprocessing.cpu_count())], pg_venv=pg_venv, exit_on_fail=True)
@@ -94,7 +98,7 @@ def create_virtualenv(pg_venv):
         + createdb_return_code
 
 
-def create_git_worktree(pg_venv=None):
+def create_git_worktree(pg_venv, pg_branch):
     '''
     Create a new worktree of postgresql's source code in the pg_venv directory
     '''
@@ -106,12 +110,21 @@ def create_git_worktree(pg_venv=None):
 
     # create a new worktree
     current_commit = subprocess.check_output('cd {} && git describe --tags'.format(pg_dir), shell=True).strip().decode('utf-8')
-    cmd = 'cd {} && git worktree add {} -b {}'.format(
-        pg_dir,
-        pg_src,
-        pg_venv
-    )
-    worktree_return_code = execute_cmd(cmd, "Creating a new PostgreSQL worktree with branch {} based on branch {}".format(pg_venv, current_commit), exit_on_fail=True)
+    if pg_branch is not None:
+        cmd = 'cd {} && git worktree add {} {}'.format(
+            pg_dir,
+            pg_src,
+            pg_branch
+        )
+        worktree_return_code = execute_cmd(cmd, "Creating a new PostgreSQL worktree with branch {} based on branch {}".format(pg_venv, pg_branch), exit_on_fail=True)
+    else:
+        cmd = 'cd {} && git worktree add {} -b {}'.format(
+            pg_dir,
+            pg_src,
+            pg_venv
+        )
+        worktree_return_code = execute_cmd(cmd, "Creating a new PostgreSQL worktree with branch {} based on branch {}".format(pg_venv, current_commit), exit_on_fail=True)
+
 
     return worktree_return_code
 

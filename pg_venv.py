@@ -29,10 +29,16 @@ Actions:
 
         Uses environment variables PG_DIR, PG_CONFIGURE_OPTIONS, and PG_VENV.
 
-    create_virtualenv:
-        Create a new pg_venv, by creating a new git worktree and checking out a
-        branch named after your pg_venv, compiling the code, installing it, 
-        running initdb, starting the server and creating a db using createdb.
+    create_virtualenv [--pg-branch <pg_branch>]:
+        Create a new pg_venv, by creating a new git worktree, compiling the 
+        code, installing it, running initdb, starting the server and creating a
+        db using createdb.
+
+        By default, create a new branch in PostgreSQL's repository with the same
+        name as the pg_venv. This will not work if a branch already exists with
+        that name.
+        If you specify a pg_branch, that existing branch from the PostgreSQL's
+        repository will be tracked instead.
 
     get_shell_function:
         Return the function pg() that's used as a wrapper around this script
@@ -173,6 +179,14 @@ if __name__ == '__main__':
         'pg_venv',
         help='New pg_venv',
         metavar='<pg_venv>'
+    )
+
+    # define optional argument branch for create_virtualenv action
+    action_parsers['create_virtualenv'].add_argument(
+        '--pg-branch',
+        nargs=1,
+        help='PostgreSQL branch to checkout in the worktree',
+        metavar='<pg_branch>'
     )
 
     # define optional pg_venv argument for actions that need it

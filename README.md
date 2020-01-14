@@ -95,7 +95,8 @@ psql
 pg stop
 
 # you can run another instance at the same time
-pg create_virtualenv anotherfeature
+# this one will use the code from postgresql's REL_12_1 commit
+pg create_virtualenv anotherfeature --pg-branch REL_12_1
 pg log anotherfeature
 pg workon anotherfeature
 pg list
