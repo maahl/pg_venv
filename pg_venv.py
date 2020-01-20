@@ -217,4 +217,5 @@ if __name__ == '__main__':
     del action_args['func']
     del action_args['action']
 
-    action(action_args)
+    return_code = action(action_args)
+    exit(return_code)
