@@ -121,14 +121,30 @@ def create_git_worktree(pg_venv, pg_branch):
             pg_src,
             pg_branch
         )
-        worktree_return_code = execute_cmd(cmd, "Creating a new PostgreSQL worktree with branch {} based on branch {}".format(pg_venv, pg_branch), exit_on_fail=True)
+        worktree_return_code = execute_cmd(
+            cmd,
+            "Creating a new PostgreSQL worktree with branch {} based on branch {}".format(
+                pg_venv,
+                pg_branch
+            ),
+            process_output=False,
+            exit_on_fail=True
+        )
     else:
         cmd = 'cd {} && git worktree add {} -b {}'.format(
             pg_dir,
             pg_src,
             pg_venv
         )
-        worktree_return_code = execute_cmd(cmd, "Creating a new PostgreSQL worktree with branch {} based on branch {}".format(pg_venv, current_commit), exit_on_fail=True)
+        worktree_return_code = execute_cmd(
+            cmd,
+            "Creating a new PostgreSQL worktree with branch {} based on branch {}".format(
+                pg_venv,
+                current_commit
+            ),
+            process_output=False,
+            exit_on_fail=True
+        )
 
 
     return worktree_return_code
@@ -366,17 +382,25 @@ def rm_virtualenv(pg_venv):
         log("The data won't be deleted.", message_type='error')
         return False
     else:
+        # stop postgres if necessary
         if pg_is_running(pg_venv):
             stop_return_code = stop(pg_venv)
             if stop_return_code != 0:
                 return stop_return_code
 
+        # remove the worktree
         cmd = 'cd {} && git worktree remove {}'.format(pg_dir, get_pg_src(pg_venv))
-        rm_worktree_return_code = execute_cmd(cmd, 'Removing virtualenv {}'.format(pg_venv))
+        rm_worktree_return_code = execute_cmd(cmd, 'Removing virtualenv\'s postgres worktree')
 
+        # remove the virtualenv dir
         cmd = 'rm -r {}'.format(pg_venv_dir)
-        rm_dir_return_code = execute_cmd(cmd, 'Removing virtualenv {}'.format(pg_venv))
-        return rm_dir_return_code + rm_worktree_return_code
+        rm_dir_return_code = execute_cmd(cmd, 'Removing virtualenv data')
+
+        # remove the branch in postgres repository
+        cmd = 'cd {} && git branch -d {}'.format(pg_dir, pg_venv)
+        rm_branch_return_code = execute_cmd(cmd, 'Removing associated postgres branch', process_output=False)
+
+        return rm_dir_return_code + rm_worktree_return_code + rm_branch_return_code
 
 
 def server_log(pg_venv):
