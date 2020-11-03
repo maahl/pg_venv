@@ -1,5 +1,6 @@
 import multiprocessing
 import sys
+import time
 
 from utils import *
 
@@ -82,6 +83,10 @@ def create_virtualenv(pg_venv, pg_branch):
     initdb_return_code = initdb(pg_venv, exit_on_fail=True)
 
     start_return_code = start(pg_venv, exit_on_fail=True)
+
+    # sleep for a while to give the server time to start
+    # it would be better to use the `--wait` option of pg_ctl, but it was only introduced in pg10
+    time.sleep(1)
 
     cmd = os.path.join(get_pg_bin(pg_venv), 'createdb -p {}'.format(get_pg_port(pg_venv)))
     createdb_return_code = execute_cmd(cmd, 'Creating a database', exit_on_fail=True)
@@ -396,7 +401,7 @@ def start(pg_venv, exit_on_fail=False):
         pg_venv = get_env_var('PG_VENV')
 
     # start postgresql
-    cmd = '{} start -D {} -l {} --core-files --wait -o "-p {}"'.format(
+    cmd = '{} start -D {} -l {} --core-files -o "-p {}"'.format(
         os.path.join(get_pg_bin(pg_venv), 'pg_ctl'),
         get_pg_data(pg_venv),
         get_pg_log(pg_venv),
